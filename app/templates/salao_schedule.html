@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Agendar Serviço em {{ admin.username }}</h2>
+<form method="POST">
+    <label>Serviço:</label>
+    <select name="service_id" required>
+        <option value="">Selecione</option>
+        {% for service in services %}
+            <option value="{{ service.id }}">{{ service.name }}</option>
+        {% endfor %}
+    </select>
+    <label>Profissional:</label>
+    <select name="professional_id" required>
+        <option value="">Selecione</option>
+        {% for professional in professionals %}
+            <option value="{{ professional.id }}">{{ professional.name }}</option>
+        {% endfor %}
+    </select>
+    <label>Data e Hora:</label>
+    <input type="datetime-local" name="appointment_time" required>
+    <button type="submit">Agendar</button>
+</form>
+{% endblock %}

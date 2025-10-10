@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center mt-5">
+    <h2>Bem-vindo ao salão {{ salao_slug }}</h2>
+    <form method="POST" class="mt-4">
+        <input type="text" name="phone" placeholder="Telefone" class="form-control mb-2" required>
+        <input type="text" name="name" placeholder="Nome completo" class="form-control mb-2" required>
+        <input type="date" name="birthdate" placeholder="Data de nascimento" class="form-control mb-2" required>
+        <button type="submit" class="btn btn-primary w-100">Entrar / Cadastrar</button>
+    </form>
+</div>
+{% endblock %}

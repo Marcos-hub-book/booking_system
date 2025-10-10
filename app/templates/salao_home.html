@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 320px;">
+    {% if admin.logo_url %}
+        <div style="width: 96px; height: 96px; border-radius: 50%; overflow: hidden; background: #f2f3f5; margin-bottom: 24px; display: flex; align-items: center; justify-content: center;">
+            <img src="{{ admin.logo_url }}" alt="Logo do salão" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+    {% endif %}
+    <h2 style="font-weight: 500; font-size: 1.4rem; margin-bottom: 8px; text-align: center;">Bem-vindo ao {{ admin.username }}</h2>
+    <p style="color: #7a7a7a; font-size: 1rem; margin-bottom: 32px; text-align: center;">Agende seu horário de forma rápida e fácil.</p>
+    <a href="{{ url_for('main.customer_login', salao_slug=admin.username) }}"
+       style="display: block; width: 100%; background: #232323; color: #fff; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; letter-spacing: 0.01em; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04); transition: background 0.2s;">
+        Entrar para agendar
+    </a>
+</div>
+{% endblock %}

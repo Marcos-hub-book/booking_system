@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Login ou Cadastro de Cliente</h2>
+<form method="POST">
+    <input type="text" name="phone" placeholder="Telefone" required>
+    <input type="text" name="name" placeholder="Nome completo" required>
+    <input type="date" name="birthdate" placeholder="Data de nascimento" required>
+    <button type="submit">Entrar / Cadastrar</button>
+</form>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>My Appointments</h2>
+<ul>
+    {% for appointment in appointments %}
+        <li>
+            {{ appointment.appointment_time }} - 
+            {{ appointment.service.name }} with 
+            {{ appointment.professional.name }}
+        </li>
+    {% else %}
+        <li>No appointments found.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

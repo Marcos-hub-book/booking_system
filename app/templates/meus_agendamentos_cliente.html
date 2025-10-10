@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; min-height: 70vh;">
+    <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 22px; color: #232323; text-align: center;">Meus Agendamentos</h2>
+    {% if agendamentos %}
+        {% for ag in agendamentos %}
+        <div style="width: 100%; background: #fff; border-radius: 10px; border: 1px solid #e3e7eb; padding: 16px 14px; margin-bottom: 16px; display: flex; flex-direction: column;">
+            <div style="font-weight: 500;">{{ ag.service.name }}</div>
+            <div style="color: #7a7a7a; font-size: 0.97rem;">{{ ag.professional.name }}</div>
+            <div style="color: #232323; font-size: 1rem;">{{ ag.appointment_time.strftime('%d/%m/%Y %H:%M') }}</div>
+            <form method="POST" action="{{ url_for('main.cancelar_agendamento_cliente', salao_slug=salao_slug, agendamento_id=ag.id) }}" style="margin-top: 10px;">
+                <button type="submit" style="background: #d32f2f; color: #fff; border: none; border-radius: 8px; padding: 8px 0; width: 100%; font-size: 1rem; font-weight: 500; cursor: pointer;">
+                    Cancelar Agendamento
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color: #7a7a7a; font-size: 1rem; text-align: center;">Ainda não há agendamentos.</p>
+    {% endif %}
+    <a href="{{ url_for('main.cliente_opcoes', salao_slug=salao_slug) }}" style="margin-top: 18px; color: #232323; text-decoration: underline; font-size: 1rem;">Voltar</a>
+</div>
+{% endblock %}

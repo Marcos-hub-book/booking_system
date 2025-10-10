@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Admin Panel</title>
+</head>
+<body>
+    {% include 'base.html' %}
+    <div class="container">
+        <h1>Admin Panel</h1>
+        <div class="admin-functions">
+            <h2>Manage Professionals</h2>
+            <a href="{{ url_for('admin.add_professional') }}">Add Professional</a>
+            <a href="{{ url_for('admin.view_professionals') }}">View Professionals</a>
+
+            <h2>Manage Services</h2>
+            <a href="{{ url_for('admin.add_service') }}">Add Service</a>
+            <a href="{{ url_for('admin.view_services') }}">View Services</a>
+
+            <h2>Manage Appointments</h2>
+            <a href="{{ url_for('admin.view_appointments') }}">View Appointments</a>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+</body>
+</html>

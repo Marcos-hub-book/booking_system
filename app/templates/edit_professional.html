@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 500px; margin: 0 auto;">
+    <h2>Editar Profissional</h2>
+    <form method="POST">
+        <label>Nome:</label>
+        <input type="text" name="name" value="{{ professional.name }}" required><br><br>
+        <label>Dias de trabalho e horários:</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
+            {% for i in range(7) %}
+            <div style="background: #f8f8f8; border: 1px solid #e3e7eb; border-radius: 8px; padding: 12px 10px; min-width: 200px;">
+                <label style="font-weight: 500;">
+                    <input type="checkbox" name="workdays" value="{{ i }}"
+                        {% if horarios.get(i) %}checked{% endif %}>
+                    {{ dias[i] }}
+                </label>
+                <div style="margin-top: 8px;">
+                    Das <input type="time" name="start_{{ i }}" style="width: 90px;"
+                        value="{{ horarios.get(i).start_time if horarios.get(i) else '' }}">
+                    às <input type="time" name="end_{{ i }}" style="width: 90px;"
+                        value="{{ horarios.get(i).end_time if horarios.get(i) else '' }}">
+                </div>
+                <div style="margin-top: 6px;">
+                    Pausa: <input type="time" name="break_start_{{ i }}" style="width: 80px;"
+                        value="{{ horarios.get(i).break_start if horarios.get(i) and horarios.get(i).break_start else '' }}">
+                    às <input type="time" name="break_end_{{ i }}" style="width: 80px;"
+                        value="{{ horarios.get(i).break_end if horarios.get(i) and horarios.get(i).break_end else '' }}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="submit" style="margin-top: 18px;">Salvar</button>
+        <a href="{{ url_for('main.professionals_list') }}" style="margin-left: 12px;">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

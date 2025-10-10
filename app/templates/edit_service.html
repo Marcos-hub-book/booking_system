@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Editar Serviço</h2>
+<form method="POST">
+    <div>
+        <label for="name">Nome do Serviço:</label>
+        <input type="text" id="name" name="name" value="{{ service.name }}" required>
+    </div>
+    <div>
+        <label for="duration">Duração (minutos):</label>
+        <input type="number" id="duration" name="duration" min="1" value="{{ service.duration }}" required>
+    </div>
+    <div>
+        <label for="price">Preço (R$):</label>
+        <input type="number" id="price" name="price" min="0" step="0.01" value="{{ service.price }}" required>
+    </div>
+    <div>
+        <label>Profissionais:</label><br>
+        {% for professional in professionals %}
+            <label style="margin-right: 10px;">
+                <input type="checkbox" name="professional_ids" value="{{ professional.id }}"
+                    {% if professional.id|string in selected_ids %}checked{% endif %}>
+                {{ professional.name }}
+            </label>
+        {% endfor %}
+    </div>
+    <button type="submit">Salvar</button>
+    <a href="{{ url_for('main.services_list') }}" style="margin-left: 12px;">Cancelar</a>
+</form>
+{% endblock %}

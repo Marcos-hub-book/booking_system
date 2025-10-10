@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width: 100%; max-width: 400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
+    <a href="{{ back_url }}" style="align-self: flex-start; font-size: 2rem; color: #232323; text-decoration: none; background: none; border: none; margin-bottom: 20px;">
+        &#8592; <span style="position: absolute; left: -9999px;">Voltar</span>
+    </a>
+    <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 28px; color: #232323; text-align: center; width: 100%;">Escolha o período</h3>
+    <form method="POST" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <button name="period" value="manha"
+            style="width: 80%; background: #fff; border: 1px solid #e3e7eb; border-radius: 14px; padding: 18px 0; font-size: 1.08rem; color: #232323; font-weight: 500; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); margin: 0; cursor: pointer; transition: border 0.2s;">
+            Manhã
+        </button>
+        <button name="period" value="tarde"
+            style="width: 80%; background: #fff; border: 1px solid #e3e7eb; border-radius: 14px; padding: 18px 0; font-size: 1.08rem; color: #232323; font-weight: 500; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); margin: 0; cursor: pointer; transition: border 0.2s;">
+            Tarde
+        </button>
+        <button name="period" value="noite"
+            style="width: 80%; background: #fff; border: 1px solid #e3e7eb; border-radius: 14px; padding: 18px 0; font-size: 1.08rem; color: #232323; font-weight: 500; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); margin: 0; cursor: pointer; transition: border 0.2s;">
+            Noite
+        </button>
+    </form>
+</div>
+{% endblock %}

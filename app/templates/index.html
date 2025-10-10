@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Online Scheduling System</title>
+</head>
+<body>
+    {% extends "base.html" %}
+    {% block content %}
+    <div style="width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh;">
+        <h1 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 18px; color: #232323; text-align: center;">Bem-vindo ao Sistema de Agendamento Online</h1>
+        <p style="color: #7a7a7a; font-size: 1rem; margin-bottom: 32px; text-align: center;">
+            Agende horários em salões, clínicas e pequenos negócios de forma simples e rápida.
+        </p>
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 14px;">
+            <a href="{{ url_for('main.login') }}"
+               style="background: #232323; color: #fff; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; letter-spacing: 0.01em; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04); transition: background 0.2s;">
+                Login
+            </a>
+            <a href="{{ url_for('main.register') }}"
+               style="background: #fff; color: #232323; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; border: 1px solid #e3e7eb; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); transition: border 0.2s;">
+                Registrar como Profissional
+            </a>
+            <a href="{{ url_for('main.schedule') }}"
+               style="background: #fff; color: #232323; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; border: 1px solid #e3e7eb; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); transition: border 0.2s;">
+                Agendar Horário
+            </a>
+        </div>
+    </div>
+    {% endblock %}
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+</body>
+</html>

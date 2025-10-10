@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width: 100%; max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
+    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+        <a href="{{ url_for('main.dashboard', data=prev_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8592;</a>
+        <span style="font-size: 1.1rem; font-weight: 500;">{{ data.strftime('%d/%m/%Y') }}</span>
+        <a href="{{ url_for('main.dashboard', data=next_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8594;</a>
+    </div>
+    <form method="get" action="{{ url_for('main.dashboard') }}" style="width: 100%; display: flex; gap: 8px; margin-bottom: 18px;">
+        <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
+        <select name="profissional_id" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <option value="">Todos os profissionais</option>
+            {% for p in profissionais %}
+                <option value="{{ p.id }}" {% if profissional_id and p.id == profissional_id %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="status" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <option value="ativos" {% if status == 'ativos' %}selected{% endif %}>Ativos</option>
+            <option value="cancelados" {% if status == 'cancelados' %}selected{% endif %}>Cancelados</option>
+        </select>
+        <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #232323; color: #fff; border: none;">Filtrar</button>
+    </form>
+    <div style="width: 100%; display: flex; justify-content: flex-end; margin-bottom: 18px;">
+        <a href="{{ url_for('main.professionals_list') }}" style="margin-right: 10px; background: #fff; border: 1px solid #e3e7eb; border-radius: 8px; padding: 8px 14px; color: #232323; text-decoration: none; font-weight: 500;">Profissionais</a>
+        <a href="{{ url_for('main.services_list') }}" style="background: #fff; border: 1px solid #e3e7eb; border-radius: 8px; padding: 8px 14px; color: #232323; text-decoration: none; font-weight: 500;">Serviços</a>
+    </div>
+    <div style="width: 100%; margin-bottom: 24px;">
+        <form method="post" action="{{ url_for('main.dashboard_add_event') }}" style="display: flex; flex-direction: column; gap: 8px; background: #f8f8f8; border-radius: 10px; padding: 14px;">
+            <div style="font-weight: 500; margin-bottom: 4px;">Adicionar Bloqueio</div>
+            <select name="profissional_id" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+                <option value="">Selecione o profissional</option>
+                {% for p in profissionais %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="date" name="data" value="{{ data.strftime('%Y-%m-%d') }}" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <input type="time" name="hora" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <input type="number" name="duracao" min="5" max="480" step="5" placeholder="Duração em minutos" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <input type="text" name="descricao" maxlength="100" placeholder="Descrição do bloqueio" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+            <input type="hidden" name="tipo" value="bloqueio">
+            <button type="submit" style="background: #232323; color: #fff; border: none; border-radius: 8px; padding: 10px 0; font-size: 1rem; font-weight: 500;">Adicionar Bloqueio</button>
+        </form>
+    </div>
+    <div style="width: 100%;">
+        <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 10px; color: #232323;">Agendamentos do dia</h3>
+        {% if agendamentos %}
+            {% for ag in agendamentos %}
+            <div style="background: #fff; border-radius: 10px; border: 1px solid #e3e7eb; padding: 14px 12px; margin-bottom: 12px; display: flex; flex-direction: column;">
+                <div style="font-weight: 500;">
+                    {{ ag.appointment_time.strftime('%H:%M') }} - 
+                    {% if ag.customer %}{{ ag.customer.name }}{% else %}<span style="color:#d32f2f;">Bloqueio</span>{% endif %}
+                </div>
+                <div style="color: #7a7a7a; font-size: 0.97rem;">
+                    {% if ag.service %}{{ ag.service.name }}{% endif %}
+                    {% if ag.descricao %}{{ ag.descricao }}{% endif %}
+                </div>
+                <div style="color: #232323; font-size: 0.97rem;">
+                    Profissional: {{ ag.professional.name }}
+                </div>
+                <div style="margin-top: 8px;">
+                    {% if ag.ativo %}
+                    <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                        <button type="submit" style="background: #d32f2f; color: #fff; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.97rem; font-weight: 500; cursor: pointer;">Cancelar</button>
+                    </form>
+                    {% else %}
+                    <span style="color: #d32f2f; font-weight: 500;">Cancelado</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #7a7a7a; font-size: 1rem; text-align: center;">Nenhum agendamento para este dia.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
