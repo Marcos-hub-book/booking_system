@@ -13,7 +13,7 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:35268234@localhost:5432/booking_system')
     db.init_app(app)
     login_manager.init_app(app)
-    migrate = Migrate(app, db) 
+    migrate = Migrate(app, db)
 
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
