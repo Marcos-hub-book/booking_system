@@ -10,12 +10,13 @@ login_manager = LoginManager()
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chaveprojeto123')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:35268234@localhost:5432/booking_system')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:WChEzjpJsfDanSsdClJDpHYZzVDmRKgg@postgres.railway.internal:5432/railway')
     db.init_app(app)
     login_manager.init_app(app)
     migrate = Migrate(app, db)
 
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
+
 
     return app
