@@ -1,5 +1,5 @@
 # migrate.py
-from app import create_app, db
+from __init__ import create_app, db
 from flask_migrate import upgrade
 
 app = create_app()
