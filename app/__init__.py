@@ -10,7 +10,13 @@ login_manager = LoginManager()
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chaveprojeto123')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:WChEzjpJsfDanSsdClJDpHYZzVDmRKgg@postgres.railway.internal:5432/railway')
+    
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        # Use a string pública do Railway para testes locais
+        db_url = 'postgresql://postgres:WChEzjpJsfDanSsdClJDpHYZzVDmRKgg@hopper.proxy.rlwy.net:41618/railway'
+
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     db.init_app(app)
     login_manager.init_app(app)
     migrate = Migrate(app, db)
