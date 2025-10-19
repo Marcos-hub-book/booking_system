@@ -43,13 +43,22 @@ def register():
     if form.validate_on_submit():
         new_user = User(
             username=form.username.data,
+            full_name=form.full_name.data,
+            company_name=form.company_name.data,
+            phone=form.phone.data,
             email=form.email.data,
-            role='admin'
+            cep=form.cep.data,
+            logradouro=form.logradouro.data,
+            numero=form.numero.data,
+            cidade=form.cidade.data,
+            estado=form.estado.data,
+            role='admin',
+            plan="free"
         )
         new_user.set_password(form.password.data)
         db.session.add(new_user)
         db.session.commit()
-        flash('Registration successful! You can now log in.', 'success')
+        flash('Conta criada com sucesso! Você pode agora fazer login.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html', form=form)
 
