@@ -12,37 +12,71 @@
         <h2>Register as a Professional</h2>
         <form method="POST" action="{{ url_for('main.register') }}">
             {{ form.hidden_tag() }}
-            <div class="form-group">
-                {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control", placeholder="Username") }}
-                {% for error in form.username.errors %}
-                    <span class="text-danger">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-control", placeholder="Email") }}
-                {% for error in form.email.errors %}
-                    <span class="text-danger">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control", placeholder="Password") }}
-                {% for error in form.password.errors %}
-                    <span class="text-danger">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-control", placeholder="Confirm Password") }}
-                {% for error in form.confirm_password.errors %}
-                    <span class="text-danger">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <button type="submit" class="btn btn-primary">Register</button>
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control", placeholder="Ex: beleza_ana") }}
+            {% for error in form.username.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            {{ form.full_name.label(class="form-label") }}
+            {{ form.full_name(class="form-control", placeholder="Nome completo") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.company_name.label(class="form-label") }}
+            {{ form.company_name(class="form-control", placeholder="Nome do salão ou clínica") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.phone.label(class="form-label") }}
+            {{ form.phone(class="form-control", placeholder="Telefone") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.cep.label(class="form-label") }}
+            {{ form.cep(class="form-control", placeholder="CEP") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.logradouro.label(class="form-label") }}
+            {{ form.logradouro(class="form-control", placeholder="Rua, avenida...") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.numero.label(class="form-label") }}
+            {{ form.numero(class="form-control", placeholder="Número") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.cidade.label(class="form-label") }}
+            {{ form.cidade(class="form-control", placeholder="Cidade") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.estado.label(class="form-label") }}
+            {{ form.estado(class="form-control", placeholder="UF") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control", placeholder="Email") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control", placeholder="Senha") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.confirm_password.label(class="form-label") }}
+            {{ form.confirm_password(class="form-control", placeholder="Confirmar senha") }}
+        </div>
+            <button type="submit" class="btn btn-primary">Registrar</button>
         </form>
-        <p>Already have an account? <a href="{{ url_for('main.login') }}">Login here</a></p>
+        <p>Já tem uma conta? <a href="{{ url_for('main.login') }}">Login aqui</a></p>
     </div>
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
