@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:360px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Escolha o local de atendimento</h2>
+  <form method="POST" style="display:flex;flex-direction:column;gap:10px;">
+    <select name="location_id" required style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
+      <option value="">Selecione um local</option>
+      {% for loc in locations %}
+        <option value="{{ loc.id }}">{{ loc.name }}</option>
+      {% endfor %}
+    </select>
+    <div style="display:flex;gap:8px;">
+      <a href="{{ back_url }}" style="flex:1;text-align:center;background:#fff;color:#232323;border:1px solid #e3e7eb;border-radius:10px;padding:12px 0;text-decoration:none;">Voltar</a>
+      <button type="submit" style="flex:1;background:#232323;color:#fff;border:none;border-radius:10px;padding:12px 0;">Continuar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

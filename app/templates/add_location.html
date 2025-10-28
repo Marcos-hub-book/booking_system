@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Adicionar local</h2>
+  <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
+    <label>Nome do local</label>
+    <input type="text" name="name" required style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
+
+    <div style="margin-top:8px;font-weight:600;">Dias e horários</div>
+    {% set dias = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'] %}
+    {% for i in range(7) %}
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label style="width:40px;">{{ dias[i] }}</label>
+      <input type="checkbox" name="workdays" value="{{ i }}">
+      <input type="time" name="start_{{ i }}" style="padding:6px;border:1px solid #e3e7eb;border-radius:8px;">
+      <span>-</span>
+      <input type="time" name="end_{{ i }}" style="padding:6px;border:1px solid #e3e7eb;border-radius:8px;">
+      <span style="margin-left:8px;">Intervalo</span>
+      <input type="time" name="break_start_{{ i }}" style="padding:6px;border:1px solid #e3e7eb;border-radius:8px;">
+      <span>-</span>
+      <input type="time" name="break_end_{{ i }}" style="padding:6px;border:1px solid #e3e7eb;border-radius:8px;">
+    </div>
+    {% endfor %}
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <a href="{{ url_for('main.locations_list') }}" style="background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:10px 14px;text-decoration:none;color:#232323;">Cancelar</a>
+      <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 14px;">Salvar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

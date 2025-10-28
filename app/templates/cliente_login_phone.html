@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:16px;">
+  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Entre usando seu telefone</h2>
+  <p style="color:#666;margin:0;">Digite seu número para continuar.</p>
+
+  <!-- LoginPhoneScreen -->
+  <div id="screen-login">
+    <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Telefone</label>
+    <input id="phone-input" type="tel" inputmode="numeric" placeholder="(00) 0 0000-0000" maxlength="16"
+           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+    <small style="color:#7a7a7a;display:block;margin-top:6px;">Apenas números. Ex.: (11) 9 8765-4321</small>
+    <button id="btn-start" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Continuar</button>
+  </div>
+
+  <!-- PhoneLoginScreen (password) -->
+  <div id="screen-password" style="display:none;">
+    <p style="margin:0 0 8px;">Olá, <strong id="customer-name"></strong>! Digite sua senha para entrar.</p>
+    <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Senha</label>
+    <input id="password-input" type="password" placeholder="Sua senha" 
+           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+    <button id="btn-login" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Entrar</button>
+    <button id="btn-back-1" style="margin-top:8px;width:100%;background:#fff;color:#232323;padding:10px 0;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;">Voltar</button>
+  </div>
+
+  <!-- RegisterScreen -->
+  <div id="screen-register" style="display:none;">
+    <p style="margin:0 0 8px;">Complete seu cadastro para continuar.</p>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Nome</label>
+        <input id="first-name" type="text" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+      </div>
+      <div style="flex:1;">
+        <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Sobrenome</label>
+        <input id="last-name" type="text" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+      </div>
+    </div>
+    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Email (opcional)</label>
+    <input id="email" type="email" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+
+    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Data de nascimento</label>
+    <input id="birthdate" type="date" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+
+    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Telefone</label>
+    <input id="phone-readonly" type="text" disabled style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;background:#f7f7f7;" />
+
+    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Senha</label>
+    <input id="password-register" type="password" placeholder="Crie uma senha" 
+           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Confirmar senha</label>
+    <input id="password-register-2" type="password" placeholder="Repita a senha" 
+           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+
+    <button id="btn-register" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Salvar e continuar</button>
+    <button id="btn-back-2" style="margin-top:8px;width:100%;background:#fff;color:#232323;padding:10px 0;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;">Voltar</button>
+  </div>
+
+  <div id="msg" style="color:#b00020;font-size:0.95rem;display:none;"></div>
+</div>
+
+<script>
+  window.SALAO_SLUG = "{{ salao_slug }}";
+  // No Firebase.
+</script>
+<script src="{{ url_for('static', filename='js/auth_password.js') }}" defer></script>
+{% endblock %}

@@ -30,11 +30,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listener for form submission
-    scheduleForm.addEventListener('submit', function(event) {
-        if (!validateForm()) {
-            event.preventDefault();
-        }
-    });
+    if (scheduleForm) {
+        scheduleForm.addEventListener('submit', function(event) {
+            if (!validateForm()) {
+                event.preventDefault();
+            }
+        });
+    }
 
     // Example function to dynamically update available times based on selected service and professional
     function updateAvailableTimes() {
@@ -44,6 +46,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listeners for changes in service and professional selections
-    serviceSelect.addEventListener('change', updateAvailableTimes);
-    professionalSelect.addEventListener('change', updateAvailableTimes);
+    if (serviceSelect) serviceSelect.addEventListener('change', updateAvailableTimes);
+    if (professionalSelect) professionalSelect.addEventListener('change', updateAvailableTimes);
 });

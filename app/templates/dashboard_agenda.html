@@ -1,76 +1,220 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="width: 100%; max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
-    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-        <a href="{{ url_for('main.dashboard', data=prev_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8592;</a>
-        <span style="font-size: 1.1rem; font-weight: 500;">{{ data.strftime('%d/%m/%Y') }}</span>
-        <a href="{{ url_for('main.dashboard', data=next_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8594;</a>
+  <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+    <a href="{{ url_for('main.dashboard', data=prev_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8592;</a>
+    <span style="font-size: 1.1rem; font-weight: 500;">{{ data.strftime('%d/%m/%Y') }}</span>
+    <a href="{{ url_for('main.dashboard', data=next_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8594;</a>
+  </div>
+
+  <form method="get" action="{{ url_for('main.dashboard') }}" style="width: 100%; display: flex; gap: 8px; margin-bottom: 18px;">
+    <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
+    <select name="profissional_id" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+      <option value="">Todos os profissionais</option>
+      {% for p in profissionais %}
+      <option value="{{ p.id }}" {% if profissional_id and p.id == profissional_id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
+      <option value="ativos" {% if status == 'ativos' %}selected{% endif %}>Ativos</option>
+      <option value="cancelados" {% if status == 'cancelados' %}selected{% endif %}>Cancelados</option>
+    </select>
+    <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #232323; color: #fff; border: none;">Filtrar</button>
+  </form>
+
+  <div style="width: 100%; display: flex; justify-content: flex-end; margin-bottom: 18px;">
+    <!-- Hamburger for side menu -->
+    <button id="btn-menu" aria-label="menu" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">&#9776;</button>
+  </div>
+
+  <!-- Side Drawer -->
+  <div id="side-drawer" style="display:none;position:fixed;top:0;left:0;width:260px;height:100%;background:#ffffff;border-right:1px solid #e3e7eb;box-shadow:0 4px 24px rgba(0,0,0,0.08);z-index:100;padding:16px;">
+    <div style="font-weight:600;font-size:1.1rem;margin-bottom:12px;">Menu</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <a href="{{ url_for('main.dashboard_profile') }}" style="text-decoration:none;color:#232323;">Meu perfil</a>
+      <a href="{{ url_for('main.add_service') }}" style="text-decoration:none;color:#232323;">Adicionar serviço</a>
+      {% if (current_user.plan or 'free')|lower != 'basic' %}
+        <a href="{{ url_for('main.add_professional') }}" style="text-decoration:none;color:#232323;">Adicionar profissional</a>
+      {% endif %}
+      {% if (current_user.plan or 'free')|lower == 'basic' %}
+        <a href="{{ url_for('main.locations_list') }}" style="text-decoration:none;color:#232323;">Locais de atendimento</a>
+      {% endif %}
     </div>
-    <form method="get" action="{{ url_for('main.dashboard') }}" style="width: 100%; display: flex; gap: 8px; margin-bottom: 18px;">
-        <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
-        <select name="profissional_id" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <option value="">Todos os profissionais</option>
-            {% for p in profissionais %}
-                <option value="{{ p.id }}" {% if profissional_id and p.id == profissional_id %}selected{% endif %}>{{ p.name }}</option>
-            {% endfor %}
-        </select>
-        <select name="status" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <option value="ativos" {% if status == 'ativos' %}selected{% endif %}>Ativos</option>
-            <option value="cancelados" {% if status == 'cancelados' %}selected{% endif %}>Cancelados</option>
-        </select>
-        <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #232323; color: #fff; border: none;">Filtrar</button>
-    </form>
-    <div style="width: 100%; display: flex; justify-content: flex-end; margin-bottom: 18px;">
-        <a href="{{ url_for('main.professionals_list') }}" style="margin-right: 10px; background: #fff; border: 1px solid #e3e7eb; border-radius: 8px; padding: 8px 14px; color: #232323; text-decoration: none; font-weight: 500;">Profissionais</a>
-        <a href="{{ url_for('main.services_list') }}" style="background: #fff; border: 1px solid #e3e7eb; border-radius: 8px; padding: 8px 14px; color: #232323; text-decoration: none; font-weight: 500;">Serviços</a>
-    </div>
-    <div style="width: 100%; margin-bottom: 24px;">
-        <form method="post" action="{{ url_for('main.dashboard_add_event') }}" style="display: flex; flex-direction: column; gap: 8px; background: #f8f8f8; border-radius: 10px; padding: 14px;">
-            <div style="font-weight: 500; margin-bottom: 4px;">Adicionar Bloqueio</div>
-            <select name="profissional_id" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-                <option value="">Selecione o profissional</option>
-                {% for p in profissionais %}
-                    <option value="{{ p.id }}">{{ p.name }}</option>
-                {% endfor %}
-            </select>
-            <input type="date" name="data" value="{{ data.strftime('%Y-%m-%d') }}" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <input type="time" name="hora" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <input type="number" name="duracao" min="5" max="480" step="5" placeholder="Duração em minutos" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <input type="text" name="descricao" maxlength="100" placeholder="Descrição do bloqueio" required style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
-            <input type="hidden" name="tipo" value="bloqueio">
-            <button type="submit" style="background: #232323; color: #fff; border: none; border-radius: 8px; padding: 10px 0; font-size: 1rem; font-weight: 500;">Adicionar Bloqueio</button>
-        </form>
-    </div>
-    <div style="width: 100%;">
-        <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 10px; color: #232323;">Agendamentos do dia</h3>
-        {% if agendamentos %}
-            {% for ag in agendamentos %}
-            <div style="background: #fff; border-radius: 10px; border: 1px solid #e3e7eb; padding: 14px 12px; margin-bottom: 12px; display: flex; flex-direction: column;">
-                <div style="font-weight: 500;">
-                    {{ ag.appointment_time.strftime('%H:%M') }} - 
-                    {% if ag.customer %}{{ ag.customer.name }}{% else %}<span style="color:#d32f2f;">Bloqueio</span>{% endif %}
-                </div>
-                <div style="color: #7a7a7a; font-size: 0.97rem;">
-                    {% if ag.service %}{{ ag.service.name }}{% endif %}
-                    {% if ag.descricao %}{{ ag.descricao }}{% endif %}
-                </div>
-                <div style="color: #232323; font-size: 0.97rem;">
-                    Profissional: {{ ag.professional.name }}
-                </div>
-                <div style="margin-top: 8px;">
-                    {% if ag.ativo %}
-                    <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                        <button type="submit" style="background: #d32f2f; color: #fff; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.97rem; font-weight: 500; cursor: pointer;">Cancelar</button>
-                    </form>
-                    {% else %}
-                    <span style="color: #d32f2f; font-weight: 500;">Cancelado</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <p style="color: #7a7a7a; font-size: 1rem; text-align: center;">Nenhum agendamento para este dia.</p>
-        {% endif %}
-    </div>
+  </div>
+
+  <div style="width: 100%;">
+    <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 10px; color: #232323;">Agendamentos do dia</h3>
+    {% if agendamentos %}
+      {% for ag in agendamentos %}
+      <div style="background: #fff; border-radius: 10px; border: 1px solid #e3e7eb; padding: 14px 12px; margin-bottom: 12px; display: flex; flex-direction: column;">
+        <div style="font-weight: 500;">
+          {{ ag.appointment_time.strftime('%H:%M') }} -
+          {% if ag.customer %}
+            {{ ag.customer.name }}
+          {% else %}
+            <span style="color:#d32f2f;">Bloqueio</span>
+          {% endif %}
+        </div>
+        <div style="color: #7a7a7a; font-size: 0.97rem;">
+          {% if ag.service %}{{ ag.service.name }}{% endif %}
+          {% if ag.descricao %}{{ ag.descricao }}{% endif %}
+        </div>
+        <div style="color: #232323; font-size: 0.97rem;">
+          Profissional: {{ ag.professional.name }}
+        </div>
+        <div style="margin-top: 8px;">
+          {% if ag.ativo %}
+          <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+            <button type="submit" style="background: #d32f2f; color: #fff; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.97rem; font-weight: 500; cursor: pointer;">Cancelar</button>
+          </form>
+          {% else %}
+          <span style="color: #d32f2f; font-weight: 500;">Cancelado</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="color: #7a7a7a; font-size: 1rem; text-align: center;">Nenhum agendamento para este dia.</p>
+    {% endif %}
+  </div>
 </div>
+
+<!-- Floating Action Button (FAB) -->
+<button id="fab" title="Adicionar" style="position:fixed;left:18px;bottom:18px;width:56px;height:56px;border-radius:50%;border:none;background:#232323;color:#fff;font-size:1.5rem;box-shadow:0 6px 16px rgba(0,0,0,0.2);cursor:pointer;z-index:90;">+</button>
+
+<!-- Speed Dial -->
+<div id="speed-dial" style="display:none;position:fixed;left:18px;bottom:86px;z-index:90;">
+  <button id="btn-add-block" style="display:block;margin-bottom:8px;width:180px;border:none;border-radius:10px;background:#fff;color:#232323;border:1px solid #e3e7eb;padding:8px 12px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.08);cursor:pointer;">Adicionar bloqueio</button>
+  <button id="btn-add-appointment" style="display:block;width:180px;border:none;border-radius:10px;background:#fff;color:#232323;border:1px solid #e3e7eb;padding:8px 12px;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,0.08);cursor:pointer;">Adicionar agendamento</button>
+</div>
+
+<!-- Modal: Add Block -->
+<div id="modal-block" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:95;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:16px;width:90%;max-width:400px;">
+    <h3 style="margin:0 0 12px;">Adicionar bloqueio</h3>
+    <form method="post" action="{{ url_for('main.dashboard_add_event') }}" style="display:flex;flex-direction:column;gap:10px;">
+      <input type="hidden" name="tipo" value="bloqueio">
+      <select name="profissional_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Profissional</option>
+        {% for p in profissionais %}
+          <option value="{{ p.id }}" {% if profissional_id and p.id==profissional_id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="data" value="{{ data.strftime('%Y-%m-%d') }}" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+      <input type="time" name="hora" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+      <input type="number" name="duracao" min="5" max="480" step="5" placeholder="Duração (min)" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+      <input type="text" name="descricao" maxlength="100" placeholder="Descrição" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" id="close-block" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
+        <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Add Appointment -->
+<div id="modal-appointment" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:95;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:16px;width:90%;max-width:420px;">
+    <h3 style="margin:0 0 12px;">Adicionar agendamento</h3>
+    <form method="post" action="{{ url_for('main.dashboard_create_appointment') }}" style="display:flex;flex-direction:column;gap:10px;">
+      <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
+      <select id="ap-prof" name="profissional_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Profissional</option>
+        {% for p in profissionais %}
+          <option value="{{ p.id }}" {% if profissional_id and p.id==profissional_id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      {% if (current_user.plan or 'free')|lower == 'basic' %}
+      <select id="ap-location" name="location_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Local</option>
+        {% for loc in locations %}
+          <option value="{{ loc.id }}">{{ loc.name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      <select id="ap-service" name="service_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Serviço</option>
+        {% for s in servicos %}
+          <option value="{{ s.id }}">{{ s.name }} ({{ s.duration }}min)</option>
+        {% endfor %}
+      </select>
+      <select id="ap-customer" name="customer_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Cliente</option>
+        {% for c in current_user.customers %}
+          <option value="{{ c.id }}">{{ c.name }} ({{ c.phone }})</option>
+        {% endfor %}
+      </select>
+      <select id="ap-time" name="hora" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
+        <option value="">Horário</option>
+      </select>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" id="close-appt" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
+        <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const btnMenu = document.getElementById('btn-menu');
+    const drawer = document.getElementById('side-drawer');
+    btnMenu && btnMenu.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      drawer.style.display = (drawer.style.display==='block') ? 'none' : 'block';
+    });
+    document.addEventListener('click', ()=>{ if(drawer) drawer.style.display='none'; });
+
+    const fab = document.getElementById('fab');
+    const dial = document.getElementById('speed-dial');
+    const modalBlock = document.getElementById('modal-block');
+    const modalAppt = document.getElementById('modal-appointment');
+    const btnAddBlock = document.getElementById('btn-add-block');
+    const btnAddAppointment = document.getElementById('btn-add-appointment');
+    const closeBlock = document.getElementById('close-block');
+    const closeAppt = document.getElementById('close-appt');
+
+    fab && fab.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      dial.style.display = (dial.style.display==='block') ? 'none' : 'block';
+    });
+    document.addEventListener('click', ()=>{ if(dial) dial.style.display='none'; });
+
+    btnAddBlock && btnAddBlock.addEventListener('click', ()=>{ dial.style.display='none'; modalBlock.style.display='flex'; });
+    btnAddAppointment && btnAddAppointment.addEventListener('click', ()=>{ dial.style.display='none'; modalAppt.style.display='flex'; updateTimes(); });
+    closeBlock && closeBlock.addEventListener('click', ()=>{ modalBlock.style.display='none'; });
+    closeAppt && closeAppt.addEventListener('click', ()=>{ modalAppt.style.display='none'; });
+
+    async function updateTimes(){
+      const prof = document.getElementById('ap-prof').value;
+      const service = document.getElementById('ap-service').value;
+      const locSel = document.getElementById('ap-location');
+      const locationId = locSel ? locSel.value : '';
+      const apTime = document.getElementById('ap-time');
+  const date = '{{ data.strftime("%Y-%m-%d") }}';
+      apTime.innerHTML = '<option value="">Horário</option>';
+      if(!(prof && service)) return;
+      try{
+        const qs = new URLSearchParams({ profissional_id: prof, service_id: service, date });
+        if(locationId) qs.set('location_id', locationId);
+        const res = await fetch(`/dashboard/available_times?${qs.toString()}`);
+        const data = await res.json();
+        if(data && data.ok){
+          data.slots.forEach(h => {
+            const opt = document.createElement('option'); opt.value = h; opt.textContent = h; apTime.appendChild(opt);
+          });
+        }
+      }catch(e){}
+    }
+
+    const apProf = document.getElementById('ap-prof');
+    const apService = document.getElementById('ap-service');
+    const apLocation = document.getElementById('ap-location');
+    apProf && apProf.addEventListener('change', updateTimes);
+    apService && apService.addEventListener('change', updateTimes);
+    apLocation && apLocation.addEventListener('change', updateTimes);
+  })();
+</script>
+</div>
+
 {% endblock %}

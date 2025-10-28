@@ -35,54 +35,138 @@ booking_system
 ├── migrations
 │   └── README.md
 ├── config.py
+# Booking System
+
+Sistema de agendamento online para salões, clínicas e pequenos negócios. Agora com autenticação de clientes por telefone + senha (sem SMS), mantendo sessão por 6 meses via cookie seguro.
+
+## Novidades (Autenticação cliente)
+
+- Login de cliente usando TELEFONE + SENHA (sem Firebase/SMS).
+- Cadastro do cliente cria a senha, que é salva (hash) na base.
+- Sessão persistente por 6 meses via cookie JWT (HttpOnly).
+- Saudação “Olá, [Nome]” no canto superior esquerdo; clique para fazer logout.
+- Se já estiver autenticado, ao acessar o link do salão pula o login e vai direto para as opções.
+
+### Telas/Fluxo
+1) `/<salao_slug>` — Home do salão. Botão “Entrar para agendar”.
+2) `/<salao_slug>/entrar` — Fluxo do cliente:
+   - Digita telefone (com máscara). Click “Continuar”.
+   - Se telefone já cadastrado no salão → pedir senha e autenticar.
+   - Se novo → formulário de cadastro (Nome, Sobrenome, Email opcional, Nascimento, Telefone pré-preenchido, Senha e Confirmar senha).
+   - Após login/cadastro → cookie (6 meses) e redireciona para `/<salao_slug>/opcoes`.
+
+## Estrutura do projeto
+
+```
+booking_system
+├── app
+│   ├── __init__.py
+│   ├── models.py
+│   ├── routes.py
+│   ├── forms.py
+│   ├── static
+│   │   ├── css
+│   │   │   └── styles.css
+│   │   └── js
+│   │       ├── scripts.js
+│   │       └── auth_password.js
+│   └── templates
+│       ├── base.html
+│       ├── index.html
+│       ├── login.html
+│       ├── register.html
+│       ├── dashboard.html
+│       ├── schedule.html
+│       ├── salao_home.html
+│       └── cliente_login_phone.html  # Tela de telefone/senha/cadastro
+├── migrations
+│   ├── versions
+│   │   └── a1b2c3d4e5f6_add_customer_password_email.py
+│   └── ...
+├── config.py
 ├── requirements.txt
 └── README.md
 ```
 
-## Installation
+## Instalação (Windows PowerShell)
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd booking_system
-   ```
-
-2. Create a virtual environment:
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   ```
-
-3. Install the required packages:
-   ```
-   pip install -r requirements.txt
-   ```
-
-4. Set up the database:
-   - Update the database URI in `config.py` with your PostgreSQL credentials.
-   - Run migrations:
-     ```
-     flask db init
-     flask db migrate
-     flask db upgrade
-     ```
-
-## Running the Application
-
-To run the application locally, use the following command:
+1) Clonar e entrar na pasta
+```powershell
+git clone <repository-url>
+cd booking_system
 ```
+
+2) Ambiente virtual
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+3) Dependências
+```powershell
+pip install -r requirements.txt
+```
+
+4) Configurar banco de dados
+- Ajuste a URI no `config.py`.
+- Rodar migrações (se ainda não inicializado o Alembic, faça apenas uma vez o init):
+```powershell
+$env:FLASK_APP = "app"
+flask db upgrade
+```
+
+Se der erro dizendo que não existe pasta de migrações inicial, rode:
+```powershell
+flask db init
+flask db migrate -m "init"
+flask db upgrade
+```
+
+## Rodando a aplicação
+```powershell
+$env:FLASK_APP = "app"
 flask run
 ```
-The application will be accessible at `http://127.0.0.1:5000`.
+Abra http://127.0.0.1:5000.
 
-## Deployment
+## Como usar (cliente)
+1) Acesse `/<salao_slug>` e clique em “Entrar para agendar”.
+2) Na tela seguinte, digite seu telefone e clique “Continuar”.
+3) Se já tiver conta, informe a senha e entre. Se não, preencha o cadastro criando uma senha.
+4) Ao logar/cadastrar, a sessão fica salva por 6 meses (cookie). Você verá “Olá, [Nome]”. Clique para sair (logout).
 
-For deployment on Render or other platforms, follow the respective documentation for setting up a Flask application.
+## Segurança
+- A senha do cliente é armazenada com hash (Werkzeug).
+- O cookie contém um JWT assinado no servidor, com expiração de 6 meses.
+- Em produção, configure o cookie como `secure=True` (HTTPS) em `app/routes.py`.
 
-## Testing
+## Observações
+- Este projeto não usa mais Firebase nem autenticação por SMS.
+- O telefone é armazenado sem DDI por padrão (11 dígitos Brasil). Adapte a máscara/normalização em `app/static/js/auth_password.js` se necessário.
 
-To test the scheduling functionality, navigate to the scheduling page after logging in as a client. You can create, view, and manage appointments.
+## Licença
+MIT
 
-## License
+## Planos (Free, Basic, Pro)
 
-This project is licensed under the MIT License.
+- Free (padrão):
+   - Até 1 profissional; não permite Locais.
+   - Fluxo do cliente sem seleção de Local.
+
+- Basic (multi-locais):
+   - Não permite adicionar/editar/remover profissionais manualmente.
+   - O sistema cria um profissional padrão com o nome da empresa.
+   - Permite gerenciar Locais e horários dos Locais.
+   - Fluxo do cliente pede Local antes do serviço quando houver Locais.
+   - Disponibilidade considera a janela do Local (e, se existir, também a agenda do profissional padrão).
+
+- Pro (multi-profissionais):
+   - Permite múltiplos profissionais, serviços por profissional.
+   - Não permite Locais (fluxo padrão por profissional).
+
+Para alterar o plano: Dashboard → Meu perfil → campo “Plano”.
+
+## Foto do salão (qualidade e formato)
+
+- A foto é exibida sempre circular (CSS com `border-radius: 50%`).
+- Ao atualizar pelo perfil, a imagem é processada: corte central quadrado, redimensionada para 512×512 e salva em WebP qualidade 90 (rápida e bonita).

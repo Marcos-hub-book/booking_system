@@ -12,6 +12,11 @@ service_professional = db.Table('service_professional',
     db.Column('professional_id', db.Integer, db.ForeignKey('professional.id'), primary_key=True)
 )
 
+service_location = db.Table('service_location',
+    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True),
+    db.Column('location_id', db.Integer, db.ForeignKey('location.id'), primary_key=True)
+)
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -64,26 +69,58 @@ class Service(db.Model):
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     admin = db.relationship('User', backref='services')
     professionals = db.relationship('Professional', secondary=service_professional, backref='services')
+    locations = db.relationship('Location', secondary=service_location, backref='services')
+
+class Location(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    admin = db.relationship('User', backref='locations')
+
+class LocationSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=False)
+    weekday = db.Column(db.Integer, nullable=False)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+    break_start = db.Column(db.Time, nullable=True)
+    break_end = db.Column(db.Time, nullable=True)
+
+    location = db.relationship('Location', backref='schedules')
 
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     birthdate = db.Column(db.Date, nullable=False)
     phone = db.Column(db.String(20), nullable=False, unique=False)
+    email = db.Column(db.String(150), nullable=True)
+    password = db.Column(db.String(255), nullable=True)
     admins = db.relationship('User', secondary=customer_admin, backref='customers')
     # Sugestão extra: email, data de cadastro, etc.
 
+    def set_password(self, raw_password: str):
+        self.password = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        if not self.password:
+            return False
+        return check_password_hash(self.password, raw_password)
+
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
     professional_id = db.Column(db.Integer, db.ForeignKey('professional.id'), nullable=False)
-    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=True)
     appointment_time = db.Column(db.DateTime, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
+    descricao = db.Column(db.String(255))
+    duracao = db.Column(db.Integer)
 
     customer = db.relationship('Customer', backref='appointments')
     professional = db.relationship('Professional', backref='appointments')
     service = db.relationship('Service', backref='appointments')
+    location = db.relationship('Location', backref='appointments')
 
 class ProfessionalSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)

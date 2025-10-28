@@ -25,6 +25,23 @@
             {% endfor %}
         </div>
     </div>
+    {% if (current_user.plan or 'free')|lower == 'basic' %}
+    <div style="margin-top: 14px;">
+        <label>Locais onde este serviço é oferecido:</label>
+        {% if locations and locations|length > 0 %}
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
+            {% for loc in locations %}
+            <label style="background: #f8f8f8; border: 1px solid #e3e7eb; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" name="location_ids" value="{{ loc.id }}" style="margin-right: 8px;">
+                <span>{{ loc.name }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:#7a7a7a;">Nenhum local cadastrado. Crie Locais no menu lateral.</p>
+        {% endif %}
+    </div>
+    {% endif %}
     <button type="submit" style="margin-top: 18px;">Add Service</button>
 </form>
 {% endblock %}

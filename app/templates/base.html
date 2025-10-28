@@ -57,6 +57,37 @@
     </style>
 </head>
 <body>
+    {% if customer_name %}
+    <div id="customer-greeting" style="position:fixed;top:8px;left:10px;color:#6b7280;font-size:0.9rem;z-index:50;cursor:pointer;">
+        Olá, {{ customer_name }}
+        <div id="logout-menu" style="display:none;position:absolute;top:20px;left:0;background:#fff;border:1px solid #e3e7eb;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+            <button id="btn-customer-logout" style="background:none;border:none;padding:8px 12px;width:100%;text-align:left;cursor:pointer;">Sair</button>
+        </div>
+    </div>
+    <script>
+        (function(){
+            const g = document.getElementById('customer-greeting');
+            const m = document.getElementById('logout-menu');
+            const b = document.getElementById('btn-customer-logout');
+            if(g && m){
+                g.addEventListener('click', (e)=>{
+                    e.stopPropagation();
+                    m.style.display = (m.style.display==='none' || !m.style.display) ? 'block' : 'none';
+                });
+                document.addEventListener('click', ()=>{ m.style.display='none'; });
+            }
+            if(b){
+                b.addEventListener('click', async (e)=>{
+                    e.preventDefault();
+                    try{
+                        await fetch('/logout-customer', { method:'POST' });
+                    }catch(e){}
+                    window.location.reload();
+                });
+            }
+        })();
+    </script>
+    {% endif %}
     <main>
         {% with messages = get_flashed_messages() %}
             {% if messages %}

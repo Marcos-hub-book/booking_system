@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Locais de atendimento</h2>
+  <a href="{{ url_for('main.add_location') }}" style="align-self:flex-start;background:#232323;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;">Adicionar local</a>
+  {% if locations %}
+    {% for loc in locations %}
+      <div style="background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">{{ loc.name }}</div>
+          <div style="font-size:0.95rem;color:#6b7280;">{{ loc.schedules|length }} dia(s) configurado(s)</div>
+        </div>
+        <a href="{{ url_for('main.edit_location', location_id=loc.id) }}" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 10px;text-decoration:none;color:#232323;">Editar</a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:#6b7280;">Nenhum local cadastrado.</p>
+  {% endif %}
+</div>
+{% endblock %}

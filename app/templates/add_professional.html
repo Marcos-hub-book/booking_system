@@ -1,28 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Add Professional</h2>
-<form method="POST">
-    <input type="text" name="name" placeholder="Professional Name" required>
-    <label style="font-weight: 500;">Dias de trabalho e horários:</label>
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-        {% set dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'] %}
-        {% for i in range(7) %}
-        <div style="background: #f8f8f8; border: 1px solid #e3e7eb; border-radius: 8px; padding: 12px 10px; min-width: 200px;">
-            <label style="font-weight: 500;">
-                <input type="checkbox" name="workdays" value="{{ i }}">
-                {{ dias[i] }}
-            </label>
-            <div style="margin-top: 8px;">
-                Das <input type="time" name="start_{{ i }}" style="width: 90px;">
-                às <input type="time" name="end_{{ i }}" style="width: 90px;">
-            </div>
-            <div style="margin-top: 6px;">
-                Pausa: <input type="time" name="break_start_{{ i }}" style="width: 80px;">
-                às <input type="time" name="break_end_{{ i }}" style="width: 80px;">
-            </div>
-        </div>
-        {% endfor %}
+<h2> </h2>
+<div style="display: flex; align-items: center; margin-bottom: 32px;">
+    <a href="{{ back_url }}" 
+        style="
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 2rem;
+            color: #232323;
+            text-decoration: none;
+            background: none;
+            border: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            z-index: 1000;
+        "
+        onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
+        onmouseout="this.style.background='transparent'; this.style.transform='none';">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6"/>
+        </svg>
+        <span style="position: absolute; left: -9999px;">Voltar</span>
+    </a>
+</div>
+<form method="POST" 
+      style="
+        background: #fff;
+        border: 1px solid #e3e7eb;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 800px;
+        margin: 0 auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        font-family: 'Inter', sans-serif;
+      ">
+
+  <h2 style="margin-bottom: 16px; font-size: 1.25rem; color: #232323;">Novo Profissional</h2>
+
+  <input type="text" name="name" placeholder="Nome do profissional" required
+         style="
+           width: 100%;
+           padding: 10px 12px;
+           border: 1px solid #ccc;
+           border-radius: 8px;
+           font-size: 0.95rem;
+           margin-bottom: 20px;
+           transition: border 0.2s ease;
+         "
+         onfocus="this.style.border='1px solid #007bff'"
+         onblur="this.style.border='1px solid #ccc'">
+
+  <label style="font-weight: 600; color: #333;">Dias de trabalho e horários</label>
+
+  <div style="
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 12px;
+      ">
+    {% set dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'] %}
+    {% for i in range(7) %}
+    <div style="
+          flex: 1 1 230px;
+          background: #f9fafb;
+          border: 1px solid #e3e7eb;
+          border-radius: 10px;
+          padding: 12px 14px;
+          min-width: 220px;
+          transition: box-shadow 0.2s ease;
+        "
+        onmouseover="this.style.boxShadow='0 2px 6px rgba(0,0,0,0.05)'"
+        onmouseout="this.style.boxShadow='none'">
+
+      <label style="font-weight: 500; color: #333;">
+        <input type="checkbox" name="workdays" value="{{ i }}" style="margin-right: 6px;">
+        {{ dias[i] }}
+      </label>
+
+      <div style="margin-top: 10px; font-size: 0.9rem; color: #444;">
+        Das 
+        <input type="time" name="start_{{ i }}" style="width: 95px; padding: 4px; border-radius: 6px; border: 1px solid #ccc;">
+        às 
+        <input type="time" name="end_{{ i }}" style="width: 95px; padding: 4px; border-radius: 6px; border: 1px solid #ccc;">
+      </div>
+
+      <div style="margin-top: 8px; font-size: 0.9rem; color: #444;">
+        Pausa: 
+        <input type="time" name="break_start_{{ i }}" style="width: 85px; padding: 4px; border-radius: 6px; border: 1px solid #ccc;">
+        às 
+        <input type="time" name="break_end_{{ i }}" style="width: 85px; padding: 4px; border-radius: 6px; border: 1px solid #ccc;">
+      </div>
     </div>
-    <button type="submit" style="margin-top: 18px;">Salvar</button>
+    {% endfor %}
+  </div>
+
+  <button type="submit"
+          style="
+            margin-top: 24px;
+            padding: 10px 22px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+          "
+          onmouseover="this.style.background='#006ae0'"
+          onmouseout="this.style.background='#007bff'">
+    Salvar
+  </button>
 </form>
 {% endblock %}

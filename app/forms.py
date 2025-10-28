@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, DateField, TimeField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
+from flask_wtf.file import FileField, FileAllowed
 
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -20,6 +21,7 @@ class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmar senha', validators=[DataRequired(), EqualTo('password')])
+    profile_photo = FileField('Foto de perfil', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Somente imagens são permitidas.')])
     submit = SubmitField('Registrar')
 
 class AppointmentForm(FlaskForm):
