@@ -16,6 +16,13 @@
     </div>
     <div>
         <label>Profissionais:</label><br>
+        {% if (current_user.plan or 'free')|lower == 'basic' %}
+          <div style="margin-top:8px;padding:10px 12px;border:1px solid #e3e7eb;border-radius:8px;background:#f9fafb;display:inline-block;">
+            <div style="font-weight:500;display:inline;">{{ professionals[0].name }}</div>
+            <span style="color:#6b7280;font-size:0.92rem;margin-left:8px;">(Plano Basic)</span>
+            <input type="hidden" name="professional_ids" value="{{ professionals[0].id }}">
+          </div>
+        {% else %}
         {% for professional in professionals %}
             <label style="margin-right: 10px;">
                 <input type="checkbox" name="professional_ids" value="{{ professional.id }}"
@@ -23,6 +30,7 @@
                 {{ professional.name }}
             </label>
         {% endfor %}
+        {% endif %}
     </div>
     {% if (current_user.plan or 'free')|lower == 'basic' %}
     <div style="margin-top: 14px;">

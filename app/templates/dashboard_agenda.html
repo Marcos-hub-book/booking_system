@@ -1,13 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="width: 100%; max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
-  <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-    <a href="{{ url_for('main.dashboard', data=prev_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8592;</a>
-    <span style="font-size: 1.1rem; font-weight: 500;">{{ data.strftime('%d/%m/%Y') }}</span>
-    <a href="{{ url_for('main.dashboard', data=next_date, profissional_id=profissional_id, status=status) }}" style="font-size: 1.5rem; text-decoration: none;">&#8594;</a>
+  <!-- Barra superior minimalista: apenas menu -->
+  <div style="width: 100%; display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px;">
+    <button id="btn-menu" aria-label="menu" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">&#9776;</button>
   </div>
 
-  <form method="get" action="{{ url_for('main.dashboard') }}" style="width: 100%; display: flex; gap: 8px; margin-bottom: 18px;">
+  
+
+  <div style="width:100%;display:flex;align-items:center;gap:10px;overflow-x:auto;margin-bottom:12px;">
+    {% for i in [-3,-2,-1,0,1,2,3] %}
+      {% set d = data + timedelta(days=i) %}
+      <a href="{{ url_for('main.dashboard', data=d.strftime('%Y-%m-%d'), profissional_id=profissional_id, status=status) }}" style="text-decoration:none;">
+        {% if i==0 %}
+  <div style="width:52px;min-width:52px;text-align:center;padding:8px 0;border:1px solid #e3e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-radius:16px;background:#232323;color:#fff;">
+          <div style="font-size:0.75rem;opacity:0.95;">{{ d.strftime('%a')|capitalize }}</div>
+          <div style="font-size:1rem;font-weight:600;line-height:1.4;">{{ d.strftime('%d') }}</div>
+        </div>
+        {% else %}
+  <div style="width:52px;min-width:52px;text-align:center;padding:8px 0;border:1px solid #e3e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-radius:16px;background:#fff;color:#232323;">
+          <div style="font-size:0.75rem;opacity:0.7;">{{ d.strftime('%a')|capitalize }}</div>
+          <div style="font-size:1rem;font-weight:600;line-height:1.4;">{{ d.strftime('%d') }}</div>
+        </div>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+  <!-- Botão de filtros abaixo das datas -->
+  <div style="width:100%;display:flex;justify-content:flex-start;margin:6px 0 8px 0;">
+    <button id="btn-filtros" style="padding:8px 12px;border:1px solid #e3e7eb;background:#fff;color:#232323;border-radius:8px;">Filtros</button>
+  </div>
+
+  <!-- Linha divisória sutil entre datas e cards -->
+  <div style="width:100%;height:1px;background:#f0f2f4;margin:4px 0 8px 0;"></div>
+
+  <form id="filters-form" method="get" action="{{ url_for('main.dashboard') }}" style="width: 100%; display: none; gap: 8px; margin-bottom: 12px;">
     <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
     <select name="profissional_id" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e3e7eb;">
       <option value="">Todos os profissionais</option>
@@ -22,17 +49,14 @@
     <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #232323; color: #fff; border: none;">Filtrar</button>
   </form>
 
-  <div style="width: 100%; display: flex; justify-content: flex-end; margin-bottom: 18px;">
-    <!-- Hamburger for side menu -->
-    <button id="btn-menu" aria-label="menu" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">&#9776;</button>
-  </div>
+  
 
   <!-- Side Drawer -->
   <div id="side-drawer" style="display:none;position:fixed;top:0;left:0;width:260px;height:100%;background:#ffffff;border-right:1px solid #e3e7eb;box-shadow:0 4px 24px rgba(0,0,0,0.08);z-index:100;padding:16px;">
     <div style="font-weight:600;font-size:1.1rem;margin-bottom:12px;">Menu</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <a href="{{ url_for('main.dashboard_profile') }}" style="text-decoration:none;color:#232323;">Meu perfil</a>
-      <a href="{{ url_for('main.add_service') }}" style="text-decoration:none;color:#232323;">Adicionar serviço</a>
+      <a href="{{ url_for('main.services_list') }}" style="text-decoration:none;color:#232323;">Serviços</a>
       {% if (current_user.plan or 'free')|lower != 'basic' %}
         <a href="{{ url_for('main.add_professional') }}" style="text-decoration:none;color:#232323;">Adicionar profissional</a>
       {% endif %}
@@ -43,39 +67,168 @@
   </div>
 
   <div style="width: 100%;">
-    <h3 style="font-size: 1.1rem; font-weight: 500; margin-bottom: 10px; color: #232323;">Agendamentos do dia</h3>
-    {% if agendamentos %}
-      {% for ag in agendamentos %}
-      <div style="background: #fff; border-radius: 10px; border: 1px solid #e3e7eb; padding: 14px 12px; margin-bottom: 12px; display: flex; flex-direction: column;">
-        <div style="font-weight: 500;">
-          {{ ag.appointment_time.strftime('%H:%M') }} -
-          {% if ag.customer %}
-            {{ ag.customer.name }}
-          {% else %}
-            <span style="color:#d32f2f;">Bloqueio</span>
+    {% set hours = range(8, 21) %}
+    {% for h in hours %}
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;">
+      <div style="width:52px;text-align:right;color:#6b7280;font-size:0.88rem;line-height:1.2rem;padding-top:8px;">{{ '%02d' % h }}:00</div>
+      <div style="flex:1;position:relative;background:#f9fafb;border:1px dashed #eef1f4;border-radius:10px;padding:8px;min-height:52px;border-bottom:1px solid #f0f2f4;">
+        {% set has_any = false %}
+        {% for ag in agendamentos %}
+          {% if ag.appointment_time.strftime('%H')|int == h %}
+            {% set has_any = true %}
+            {% set dur = (ag.service.duration if ag.service else (ag.duracao or 0)) %}
+            {% set idx = (ag.professional.id or 0) % 6 %}
+            {% if idx == 0 %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#f59e0b;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% elif idx == 1 %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #3b82f6;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#3b82f6;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% elif idx == 2 %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#10b981;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% elif idx == 3 %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #ef4444;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#ef4444;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% elif idx == 4 %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #8b5cf6;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#8b5cf6;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% else %}
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f97316;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
+                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#f97316;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                </div>
+              </div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
+                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
+              </div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
+              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+                {% if ag.ativo %}
+                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                </form>
+                {% else %}
+                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
           {% endif %}
-        </div>
-        <div style="color: #7a7a7a; font-size: 0.97rem;">
-          {% if ag.service %}{{ ag.service.name }}{% endif %}
-          {% if ag.descricao %}{{ ag.descricao }}{% endif %}
-        </div>
-        <div style="color: #232323; font-size: 0.97rem;">
-          Profissional: {{ ag.professional.name }}
-        </div>
-        <div style="margin-top: 8px;">
-          {% if ag.ativo %}
-          <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-            <button type="submit" style="background: #d32f2f; color: #fff; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.97rem; font-weight: 500; cursor: pointer;">Cancelar</button>
-          </form>
-          {% else %}
-          <span style="color: #d32f2f; font-weight: 500;">Cancelado</span>
-          {% endif %}
-        </div>
+        {% endfor %}
+        
       </div>
-      {% endfor %}
-    {% else %}
-      <p style="color: #7a7a7a; font-size: 1rem; text-align: center;">Nenhum agendamento para este dia.</p>
-    {% endif %}
+    </div>
+    {% endfor %}
   </div>
 </div>
 
@@ -159,11 +312,21 @@
   (function(){
     const btnMenu = document.getElementById('btn-menu');
     const drawer = document.getElementById('side-drawer');
+      const btnFiltros = document.getElementById('btn-filtros');
+      const filtersForm = document.getElementById('filters-form');
     btnMenu && btnMenu.addEventListener('click', (e)=>{
       e.stopPropagation();
       drawer.style.display = (drawer.style.display==='block') ? 'none' : 'block';
     });
     document.addEventListener('click', ()=>{ if(drawer) drawer.style.display='none'; });
+
+      // Toggle filtros
+      btnFiltros && btnFiltros.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        if(!filtersForm) return;
+        const isHidden = (filtersForm.style.display === 'none' || !filtersForm.style.display);
+        filtersForm.style.display = isHidden ? 'flex' : 'none';
+      });
 
     const fab = document.getElementById('fab');
     const dial = document.getElementById('speed-dial');

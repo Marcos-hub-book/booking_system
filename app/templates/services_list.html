@@ -1,28 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
-    <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 18px;">Serviços</h2>
-    <a href="{{ url_for('main.add_service') }}" style="background: #232323; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-bottom: 18px; display: inline-block;">Adicionar Serviço</a>
-    <ul style="list-style: none; padding: 0;">
+<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:12px;">
+    <div style="position:sticky;top:0;background:#f7f7f8;padding:10px 0;z-index:5;">
+        <h2 style="font-size: 1.2rem; font-weight: 600; margin: 0 0 10px;">Serviços</h2>
+        <a href="{{ url_for('main.add_service') }}" style="background: #232323; color: #fff; padding: 10px 14px; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block;">+ Adicionar serviço</a>
+    </div>
+
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
         {% for s in services %}
-        <li style="background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid #e3e7eb; display: flex; align-items: center; justify-content: space-between;">
-            <span>
-                <strong>{{ s.name }}</strong> <span style="color:#7a7a7a;">({{ s.duration }} min, R$ {{ "%.2f"|format(s.price) }})</span>
-                <br>
-                <small>Profissionais: 
+        <li style="background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div style="min-width:0;">
+                    <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }}</div>
+                    <div style="color:#6b7280;font-size:0.95rem;">{{ s.duration }} min • R$ {{ "%.2f"|format(s.price) }}</div>
+                </div>
+                <div style="flex-shrink:0;display:flex;gap:10px;">
+                    <a href="{{ url_for('main.edit_service', service_id=s.id) }}" title="Editar" style="color:#232323;text-decoration:none;font-size:1.1rem;">&#9998;</a>
+                    <a href="{{ url_for('main.confirm_delete_service', service_id=s.id) }}" title="Excluir" style="color:#d32f2f;text-decoration:none;font-size:1.2rem;">&#128465;</a>
+                </div>
+            </div>
+            <div style="color:#374151;font-size:0.95rem;">
+                <small style="color:#6b7280;">Profissionais:</small>
+                {% if s.professionals %}
                     {% for p in s.professionals %}
-                        {{ p.name }}{% if not loop.last %}, {% endif %}
+                        <small>{{ p.name }}{% if not loop.last %}, {% endif %}</small>
                     {% endfor %}
-                </small>
-            </span>
-            <span>
-                <a href="{{ url_for('main.edit_service', service_id=s.id) }}" title="Editar" style="margin-right: 10px; color: #232323;">
-                    &#9998;
-                </a>
-                <a href="{{ url_for('main.confirm_delete_service', service_id=s.id) }}" title="Excluir" style="color: #d32f2f; font-size: 1.2rem; margin-left: 8px;">
-                    &#128465;
-                </a>
-            </span>
+                {% else %}
+                    <small>Nenhum</small>
+                {% endif %}
+            </div>
+            {% if (current_user.plan or 'free')|lower == 'basic' %}
+            <div style="color:#374151;font-size:0.95rem;">
+                <small style="color:#6b7280;">Locais:</small>
+                {% if s.locations %}
+                    {% for l in s.locations %}
+                        <small>{{ l.name }}{% if not loop.last %}, {% endif %}</small>
+                    {% endfor %}
+                {% else %}
+                    <small>Não definido</small>
+                {% endif %}
+            </div>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>

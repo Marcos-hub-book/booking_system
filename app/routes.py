@@ -317,7 +317,7 @@ def dashboard():
             func.date(Appointment.appointment_time) == data,
             status_filter
         ) \
-        .options(joinedload(Appointment.professional), joinedload(Appointment.service), joinedload(Appointment.customer)) \
+        .options(joinedload(Appointment.professional), joinedload(Appointment.service), joinedload(Appointment.customer), joinedload(Appointment.location)) \
         .order_by(Appointment.appointment_time.asc()) \
         .all()
 
