@@ -1,16 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width: 100%; max-width: 400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
-
-    <div style="width: 100%; display: flex; align-items: center; margin-bottom: 32px;">
-        <a href="{{ back_url }}" style="font-size: 2rem; color: #232323; text-decoration: none; background: none; border: none; margin-right: 8px;">
-            &#8592;
-            <span style="position: absolute; left: -9999px;">Voltar</span>
-        </a>
-        <span style="flex: 1;"></span>
+<div style="width: 100%; max-width: 400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; padding: 12px 0 0;">
+    <div style="height: 44px; width: 100%; position: relative; margin-bottom: 8px; padding-top: 8px;">
+        <a href="{{ back_url }}" aria-label="Voltar"
+           style="position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:999px; border:1px solid #e3e7eb; background:#fff; color:#232323; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 1px 4px rgba(0,0,0,0.04); font-size:18px;">&lt;</a>
     </div>
 
-    <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 24px; color: #232323; text-align: center; width: 100%;">Escolha o serviço</h3>
+    <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 16px; color: #232323; text-align: center; width: 100%;">Escolha o serviço</h3>
     <form method="POST" style="width: 100%; display: flex; flex-direction: column; gap: 16px;">
         {% for service in services %}
         <button name="service_id" value="{{ service.id }}"

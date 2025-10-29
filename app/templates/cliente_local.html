@@ -1,26 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:14px;">
-  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Escolha o local de atendimento</h2>
-  <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
+<div style="width:100%;max-width:520px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-direction:column;gap:12px;">
+  <div style="height:44px;width:100%;position:relative;margin-bottom:4px;padding-top:8px;">
+    <a href="{{ back_url }}" aria-label="Voltar"
+       style="position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:999px; border:1px solid #e3e7eb; background:#fff; color:#232323; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 1px 4px rgba(0,0,0,0.04); font-size:18px;">&lt;</a>
+  </div>
+  <h2 style="font-weight:600;font-size:1.25rem;margin:0 0 4px; text-align:center;">Escolha o local de atendimento</h2>
+  <form id="form-local" method="POST" style="display:flex;flex-direction:column;gap:12px;">
     <div style="display:flex;flex-direction:column;gap:10px;">
       {% for loc in locations %}
-      <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:12px;cursor:pointer;">
-        <input type="radio" name="location_id" value="{{ loc.id }}" required>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <div style="font-weight:600;">{{ loc.name }}</div>
+      <button type="submit" name="location_id" value="{{ loc.id }}"
+        style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:14px;cursor:pointer;text-align:left;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px;overflow:hidden;">
+          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ loc.name }}</div>
           {% if loc.schedules %}
-          <div style="color:#6b7280;font-size:0.92rem;">Disponibilidade configurada</div>
+          <div style="color:#6b7280;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;">Disponibilidade configurada</div>
           {% else %}
-          <div style="color:#6b7280;font-size:0.92rem;">Sem horários definidos</div>
+          <div style="color:#6b7280;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;">Sem horários definidos</div>
           {% endif %}
         </div>
-      </label>
+        <span style="color:#9aa1a9;font-size:1.25rem;">›</span>
+      </button>
       {% endfor %}
-    </div>
-    <div style="display:flex;gap:10px;">
-      <a href="{{ back_url }}" style="flex:1;text-align:center;background:#fff;color:#232323;border:1px solid #e3e7eb;border-radius:10px;padding:12px 0;text-decoration:none;">Voltar</a>
-      <button type="submit" style="flex:1;background:#232323;color:#fff;border:none;border-radius:10px;padding:12px 0;">Continuar</button>
     </div>
   </form>
 </div>

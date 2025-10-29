@@ -694,20 +694,30 @@ def cliente_opcoes(salao_slug):
 @main.route('/<salao_slug>/servico', methods=['GET', 'POST'])
 def salao_servico(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    services = Service.query.filter_by(admin_id=admin.id).all()
+    # Em BASIC: se houver local selecionado, filtrar serviços por local
+    services_q = Service.query.filter_by(admin_id=admin.id)
+    back_url = url_for('main.salao_home', salao_slug=salao_slug)
+    if is_basic(admin):
+        sel_loc = session.get('location_id')
+        # Se houver Locais cadastrados, e um local já estiver selecionado, filtra
+        if sel_loc:
+            services_q = services_q.join(Service.locations).filter(Location.id == int(sel_loc))
+            back_url = url_for('main.salao_local', salao_slug=salao_slug)
+        else:
+            # Se existem locais cadastrados mas ainda não escolhido, volta para locais
+            if Location.query.filter_by(admin_id=admin.id).count() > 0:
+                return redirect(url_for('main.salao_local', salao_slug=salao_slug))
+    services = services_q.all()
     if request.method == 'POST':
         service_id = request.form.get('service_id')
         session['service_id'] = service_id
-        # Agora escolhemos o local depois do serviço, quando aplicável
-        if is_basic(admin) and Location.query.filter_by(admin_id=admin.id).count() > 0:
-            return redirect(url_for('main.salao_local', salao_slug=salao_slug))
-        return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
-    return render_template(
-        'cliente_servico.html',
-        services=services,
-        salao_slug=salao_slug,
-        back_url=url_for('main.salao_home', salao_slug=salao_slug)
-    )
+        if is_pro(admin):
+            return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
+        # BASIC: define profissional padrão e segue para período
+        prof = ensure_default_professional(admin)
+        session['professional_id'] = str(prof.id)
+        return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
+    return render_template('cliente_servico.html', services=services, salao_slug=salao_slug, back_url=back_url)
 
 
 @main.route('/<salao_slug>/local', methods=['GET','POST'])
@@ -715,24 +725,24 @@ def salao_local(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not is_basic(admin):
         return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    # Exige serviço escolhido antes
-    service_id = session.get('service_id')
-    if not service_id:
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
-    # Mostrar somente os locais onde o serviço é oferecido
-    locations = service.locations if service.locations else []
+    # Lista todos os Locais do salão; escolha do serviço vem depois
+    locations = Location.query.filter_by(admin_id=admin.id).all()
     if not locations:
-        flash('Este serviço ainda não está associado a nenhum local.', 'warning')
+        # Sem locais cadastrados, segue para serviço
         return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
     if request.method == 'POST':
         loc_id = request.form.get('location_id')
         session['location_id'] = int(loc_id) if loc_id else None
-        return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
+        # Após escolher local, ir para serviços
+        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
     return render_template('cliente_local.html', locations=locations, salao_slug=salao_slug, back_url=url_for('main.cliente_opcoes', salao_slug=salao_slug))
 
 @main.route('/<salao_slug>/profissional', methods=['GET', 'POST'])
 def salao_profissional(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    # No BASIC, não exibir etapa de profissional
+    if is_basic(admin):
+        return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
     service_id = session.get('service_id')
     if not service_id:
         return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
@@ -742,24 +752,17 @@ def salao_profissional(salao_slug):
         professional_id = request.form.get('professional_id')
         session['professional_id'] = professional_id
         return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
-    return render_template(
-        'cliente_profissional.html',
-        professionals=professionals,
-        salao_slug=salao_slug,
-        back_url=url_for('main.salao_servico', salao_slug=salao_slug)
-    )
+    return render_template('cliente_profissional.html', professionals=professionals, salao_slug=salao_slug, back_url=url_for('main.salao_servico', salao_slug=salao_slug))
 
 @main.route('/<salao_slug>/periodo', methods=['GET', 'POST'])
 def salao_periodo(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if request.method == 'POST':
         period = request.form.get('period')
         session['period'] = period
         return redirect(url_for('main.salao_data', salao_slug=salao_slug))
-    return render_template(
-        'cliente_periodo.html',
-        salao_slug=salao_slug,
-        back_url=url_for('main.salao_profissional', salao_slug=salao_slug)
-    )
+    back_url = url_for('main.salao_profissional', salao_slug=salao_slug) if is_pro(admin) else url_for('main.salao_servico', salao_slug=salao_slug)
+    return render_template('cliente_periodo.html', salao_slug=salao_slug, back_url=back_url)
 
 @main.route('/<salao_slug>/data', methods=['GET', 'POST'])
 def salao_data(salao_slug):
