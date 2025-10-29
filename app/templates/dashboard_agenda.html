@@ -66,169 +66,94 @@
     </div>
   </div>
 
-  <div style="width: 100%;">
-    {% set hours = range(8, 21) %}
-    {% for h in hours %}
-    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;">
-      <div style="width:52px;text-align:right;color:#6b7280;font-size:0.88rem;line-height:1.2rem;padding-top:8px;">{{ '%02d' % h }}:00</div>
-      <div style="flex:1;position:relative;background:#f9fafb;border:1px dashed #eef1f4;border-radius:10px;padding:8px;min-height:52px;border-bottom:1px solid #f0f2f4;">
-        {% set has_any = false %}
-        {% for ag in agendamentos %}
-          {% if ag.appointment_time.strftime('%H')|int == h %}
-            {% set has_any = true %}
+  <div style="width:100%;">
+    {% set start_h = 8 %}
+    {% set end_h = 21 %}
+    {% set ppm = 1.4 %}
+    {% set total_min = (end_h - start_h) * 60 %}
+    {% set height_px = (total_min * ppm)|int %}
+
+    <style>
+      .tl-wrap{display:flex;gap:10px;align-items:flex-start}
+      .tl-hours{width:48px;position:sticky;left:0;align-self:flex-start}
+      .tl-hours-inner{position:relative}
+      .tl-hour-label{position:absolute;right:6px;transform:translateY(-50%);color:#6b7280;font-size:0.8rem}
+      .tl-scroll{flex:1;max-height:calc(100vh - 220px);overflow-y:auto;border:1px dashed #eef1f4;border-radius:12px;background:#f9fafb}
+      .tl-inner{position:relative;padding:8px}
+      .tl-line{position:absolute;left:8px;right:8px;height:1px;background:#eef1f4}
+      .tl-card{position:absolute;left:12px;right:12px;min-height:40px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.04);padding:8px;overflow-wrap:anywhere;word-break:break-word;border-left-width:4px;border-left-style:solid}
+      .c0{border-left-color:#f59e0b}.c1{border-left-color:#3b82f6}.c2{border-left-color:#10b981}.c3{border-left-color:#ef4444}.c4{border-left-color:#8b5cf6}.c5{border-left-color:#f97316}
+      .cb0{background:#f59e0b}.cb1{background:#3b82f6}.cb2{background:#10b981}.cb3{background:#ef4444}.cb4{background:#8b5cf6}.cb5{background:#f97316}
+    </style>
+
+    <div class="tl-wrap">
+      <div class="tl-hours">
+        <div class="tl-hours-inner" data-height="{{ height_px }}">
+          {% for h in range(start_h, end_h+1) %}
+            {% set top_px = (((h - start_h) * 60) * ppm)|int %}
+            <div class="tl-hour-label" data-top="{{ top_px }}">{{ '%02d' % h }}:00</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="tl-scroll">
+        <div class="tl-inner" data-height="{{ height_px }}">
+          {% for h in range(start_h, end_h+1) %}
+            {% set top_px = (((h - start_h) * 60) * ppm)|int %}
+            <div class="tl-line" data-top="{{ top_px }}"></div>
+          {% endfor %}
+
+          {% for ag in agendamentos %}
             {% set dur = (ag.service.duration if ag.service else (ag.duracao or 0)) %}
+            {% set mins_from_start = ((ag.appointment_time.strftime('%H')|int - start_h) * 60 + ag.appointment_time.strftime('%M')|int) %}
+            {% set top_px = (mins_from_start * ppm)|int %}
+            {% set height_card = (dur * ppm)|int %}
             {% set idx = (ag.professional.id or 0) % 6 %}
-            {% if idx == 0 %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
+            <div class="tl-card c{{ idx }}" data-top="{{ top_px }}" data-h="{{ height_card }}">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#f59e0b;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
+                  <div title="{{ ag.professional.name }}" class="badge cb{{ idx }}" style="min-width:24px;height:24px;border-radius:999px;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
                 </div>
               </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
+              <div style="color:#6b7280;font-size:0.92rem;margin-top:2px;">{% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}</div>
+              <div style="color:#232323;font-size:0.9rem;margin-top:2px;">Profissional: {{ ag.professional.name }}</div>
               {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+              <div style="position:absolute;right:8px;bottom:6px;display:flex;gap:8px;">
                 {% if ag.ativo %}
                 <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
+                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:4px 8px;font-size:0.85rem;">Cancelar</button>
                 </form>
                 {% else %}
                 <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
                 {% endif %}
               </div>
             </div>
-            {% elif idx == 1 %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #3b82f6;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#3b82f6;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
-                </div>
-              </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
-              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
-                {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
-                </form>
-                {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
-                {% endif %}
-              </div>
-            </div>
-            {% elif idx == 2 %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#10b981;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
-                </div>
-              </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
-              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
-                {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
-                </form>
-                {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
-                {% endif %}
-              </div>
-            </div>
-            {% elif idx == 3 %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #ef4444;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#ef4444;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
-                </div>
-              </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
-              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
-                {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
-                </form>
-                {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
-                {% endif %}
-              </div>
-            </div>
-            {% elif idx == 4 %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #8b5cf6;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#8b5cf6;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
-                </div>
-              </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
-              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
-                {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
-                </form>
-                {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
-                {% endif %}
-              </div>
-            </div>
-            {% else %}
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f97316;border-radius:10px;padding:10px 10px;margin-bottom:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04);overflow-wrap:anywhere;word-break:break-word;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="font-weight:600;">{% if ag.customer %}{{ ag.customer.name }}{% else %}Bloqueio{% endif %}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="color:#6b7280;font-size:0.84rem;">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
-                  <div title="{{ ag.professional.name }}" style="min-width:24px;height:24px;border-radius:999px;background:#f97316;color:#fff;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">{{ ag.professional.name[0]|upper }}</div>
-                </div>
-              </div>
-              <div style="color:#6b7280;font-size:0.92rem;margin-top:4px;">
-                {% if ag.service %}{{ ag.service.name }}{% endif %}{% if ag.descricao %} • {{ ag.descricao }}{% endif %}
-              </div>
-              <div style="color:#232323;font-size:0.9rem;margin-top:4px;">Profissional: {{ ag.professional.name }}</div>
-              {% if ag.location %}<div style="color:#232323;font-size:0.9rem;">Local: {{ ag.location.name }}</div>{% endif %}
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
-                {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:6px 10px;font-size:0.9rem;">Cancelar</button>
-                </form>
-                {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
-                {% endif %}
-              </div>
-            </div>
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-        
+          {% endfor %}
+        </div>
       </div>
     </div>
-    {% endfor %}
+
+    <script>
+      (function(){
+        function applyPositions(){
+          document.querySelectorAll('.tl-hours-inner,.tl-inner').forEach(el=>{
+            const h = el.getAttribute('data-height');
+            if(h) el.style.height = h + 'px';
+          });
+          document.querySelectorAll('[data-top]').forEach(el=>{
+            const t = el.getAttribute('data-top');
+            if(t!==null) el.style.top = t + 'px';
+          });
+          document.querySelectorAll('.tl-card').forEach(el=>{
+            const hh = el.getAttribute('data-h');
+            if(hh) el.style.height = hh + 'px';
+          });
+        }
+        applyPositions();
+        window.addEventListener('resize', applyPositions);
+      })();
+    </script>
   </div>
 </div>
 
@@ -291,12 +216,14 @@
           <option value="{{ s.id }}">{{ s.name }} ({{ s.duration }}min)</option>
         {% endfor %}
       </select>
-      <select id="ap-customer" name="customer_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
-        <option value="">Cliente</option>
-        {% for c in current_user.customers %}
-          <option value="{{ c.id }}">{{ c.name }} ({{ c.phone }})</option>
-        {% endfor %}
-      </select>
+      <div>
+        <div style="font-weight:600;margin-bottom:6px;">Cliente</div>
+        <input type="hidden" name="customer_id" id="ap-customer-id">
+        <input type="text" name="customer_name" id="ap-customer" placeholder="Nome do cliente" autocomplete="off" style="width:100%;padding:8px;border:1px solid #e3e7eb;border-radius:8px;">
+        <div id="ap-cust-suggestions" style="margin-top:6px;display:none;border:1px solid #e3e7eb;border-radius:8px;overflow:hidden;background:#fff;"></div>
+        <input type="tel" name="customer_phone" id="ap-phone" placeholder="Telefone (opcional)" style="margin-top:8px;width:100%;padding:8px;border:1px solid #e3e7eb;border-radius:8px;">
+        <small style="color:#6b7280;">Digite para buscar clientes já atendidos; se não existir, criaremos um cadastro rápido.</small>
+      </div>
       <select id="ap-time" name="hora" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
         <option value="">Horário</option>
       </select>
@@ -348,7 +275,7 @@
     closeBlock && closeBlock.addEventListener('click', ()=>{ modalBlock.style.display='none'; });
     closeAppt && closeAppt.addEventListener('click', ()=>{ modalAppt.style.display='none'; });
 
-    async function updateTimes(){
+  async function updateTimes(){
       const prof = document.getElementById('ap-prof').value;
       const service = document.getElementById('ap-service').value;
       const locSel = document.getElementById('ap-location');
@@ -370,12 +297,44 @@
       }catch(e){}
     }
 
-    const apProf = document.getElementById('ap-prof');
+  const apProf = document.getElementById('ap-prof');
     const apService = document.getElementById('ap-service');
     const apLocation = document.getElementById('ap-location');
     apProf && apProf.addEventListener('change', updateTimes);
     apService && apService.addEventListener('change', updateTimes);
     apLocation && apLocation.addEventListener('change', updateTimes);
+
+    // Busca e sugestão de clientes (apenas já atendidos no salão)
+    const inpCust = document.getElementById('ap-customer');
+    const hidCust = document.getElementById('ap-customer-id');
+    const sugBox = document.getElementById('ap-cust-suggestions');
+    let tmr;
+    function clearSug(){ sugBox.style.display='none'; sugBox.innerHTML=''; }
+    function selectCust(c){ hidCust.value = c.id; inpCust.value = c.name; const ph=document.getElementById('ap-phone'); if(c.phone){ ph.value=c.phone; } clearSug(); }
+    inpCust && inpCust.addEventListener('input', (e)=>{
+      hidCust.value = '';
+      const q = (e.target.value || '').trim();
+      if(tmr) clearTimeout(tmr);
+      if(!q){ clearSug(); return; }
+      tmr = setTimeout(async ()=>{
+        try{
+          const res = await fetch('/api/customers/search?q=' + encodeURIComponent(q));
+          const js = await res.json();
+          if(js.ok){
+            sugBox.innerHTML = '';
+            js.results.forEach(c=>{
+              const btn = document.createElement('button');
+              btn.type='button';
+              btn.style.cssText='display:block;width:100%;text-align:left;padding:8px 10px;border:none;background:#fff;border-bottom:1px solid #f1f1f1;cursor:pointer;';
+              btn.textContent = c.name + (c.phone ? ' • ' + c.phone : '');
+              btn.addEventListener('click', ()=> selectCust(c));
+              sugBox.appendChild(btn);
+            });
+            sugBox.style.display = js.results.length ? 'block' : 'none';
+          }
+        }catch(e){ clearSug(); }
+      }, 250);
+    });
   })();
 </script>
 </div>

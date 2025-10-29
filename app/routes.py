@@ -100,6 +100,81 @@ def ensure_default_professional(admin: User) -> Professional:
     db.session.commit()
     return prof
 
+# ==========================
+# Helpers: disponibilidade/validação de slots
+# ==========================
+
+def _is_slot_available(professional: Professional, start_dt: datetime, duration: int, admin_user: User, location_id: int | None = None) -> bool:
+    weekday = start_dt.weekday()
+    # Janelas do profissional
+    schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id, weekday=weekday).all()
+    # Janelas do Local (apenas BASIC)
+    loc_schedules = []
+    if is_basic(admin_user) and location_id:
+        loc_schedules = LocationSchedule.query.filter_by(location_id=location_id, weekday=weekday).all()
+    # Se profissional sem janela, usar do Local em BASIC
+    if not schedules and loc_schedules:
+        class S: pass
+        schedules = []
+        for lsch in loc_schedules:
+            s = S()
+            s.start_time = lsch.start_time
+            s.end_time = lsch.end_time
+            s.break_start = lsch.break_start
+            s.break_end = lsch.break_end
+            schedules.append(s)
+    if not schedules:
+        return False
+    end_dt = start_dt + timedelta(minutes=duration)
+    # Verifica se cai dentro de alguma janela e não em pausas
+    inside_any = False
+    for sch in schedules:
+        s = datetime.combine(start_dt.date(), sch.start_time)
+        e = datetime.combine(start_dt.date(), sch.end_time)
+        if start_dt >= s and end_dt <= e:
+            # pausa do profissional
+            if sch.break_start and sch.break_end:
+                bs = datetime.combine(start_dt.date(), sch.break_start)
+                be = datetime.combine(start_dt.date(), sch.break_end)
+                if start_dt < be and end_dt > bs:
+                    continue
+            inside_any = True
+            break
+    if not inside_any:
+        return False
+    # Se local ativo, validar também a janela/pausa do local
+    if loc_schedules:
+        inside_loc = False
+        for lsch in loc_schedules:
+            ls = datetime.combine(start_dt.date(), lsch.start_time)
+            le = datetime.combine(start_dt.date(), lsch.end_time)
+            if start_dt >= ls and end_dt <= le:
+                if lsch.break_start and lsch.break_end:
+                    lbs = datetime.combine(start_dt.date(), lsch.break_start)
+                    lbe = datetime.combine(start_dt.date(), lsch.break_end)
+                    if start_dt < lbe and end_dt > lbs:
+                        continue
+                inside_loc = True
+                break
+        if not inside_loc:
+            return False
+    # Conflitos com agendamentos/bloqueios existentes
+    ags = Appointment.query.filter(
+        Appointment.professional_id == professional.id,
+        func.date(Appointment.appointment_time) == start_dt.date(),
+        Appointment.ativo == True
+    ).all()
+    for ag in ags:
+        if ag.service_id:
+            d = Service.query.get(ag.service_id).duration
+        else:
+            d = ag.duracao or 0
+        a_s = ag.appointment_time
+        a_e = a_s + timedelta(minutes=d)
+        if start_dt < a_e and end_dt > a_s:
+            return False
+    return True
+
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -619,13 +694,13 @@ def cliente_opcoes(salao_slug):
 @main.route('/<salao_slug>/servico', methods=['GET', 'POST'])
 def salao_servico(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    # Plano BASIC: se há locais e nenhum selecionado, força seleção do local
-    if is_basic(admin) and Location.query.filter_by(admin_id=admin.id).count() > 0 and not session.get('location_id'):
-        return redirect(url_for('main.salao_local', salao_slug=salao_slug))
     services = Service.query.filter_by(admin_id=admin.id).all()
     if request.method == 'POST':
         service_id = request.form.get('service_id')
         session['service_id'] = service_id
+        # Agora escolhemos o local depois do serviço, quando aplicável
+        if is_basic(admin) and Location.query.filter_by(admin_id=admin.id).count() > 0:
+            return redirect(url_for('main.salao_local', salao_slug=salao_slug))
         return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
     return render_template(
         'cliente_servico.html',
@@ -640,13 +715,20 @@ def salao_local(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not is_basic(admin):
         return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    locations = Location.query.filter_by(admin_id=admin.id).all()
+    # Exige serviço escolhido antes
+    service_id = session.get('service_id')
+    if not service_id:
+        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
+    # Mostrar somente os locais onde o serviço é oferecido
+    locations = service.locations if service.locations else []
     if not locations:
+        flash('Este serviço ainda não está associado a nenhum local.', 'warning')
         return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
     if request.method == 'POST':
         loc_id = request.form.get('location_id')
         session['location_id'] = int(loc_id) if loc_id else None
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
+        return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
     return render_template('cliente_local.html', locations=locations, salao_slug=salao_slug, back_url=url_for('main.cliente_opcoes', salao_slug=salao_slug))
 
 @main.route('/<salao_slug>/profissional', methods=['GET', 'POST'])
@@ -999,7 +1081,9 @@ def dashboard_add_event():
     inicio = datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
 
     if tipo == 'bloqueio':
-        # Cria um "agendamento" sem cliente/serviço, só bloqueio
+        if not _is_slot_available(profissional, inicio, duracao, current_user, location_id=None):
+            flash('Horário indisponível para bloqueio.', 'danger')
+            return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
         bloqueio = Appointment(
             professional_id=profissional.id,
             service_id=None,
@@ -1027,6 +1111,8 @@ def dashboard_create_appointment():
     profissional_id = request.form.get('profissional_id', type=int)
     service_id = request.form.get('service_id', type=int)
     customer_id = request.form.get('customer_id', type=int)
+    customer_name = (request.form.get('customer_name') or '').strip()
+    customer_phone = (request.form.get('customer_phone') or '').strip()
     data = request.form.get('data')
     hora = request.form.get('hora')
     # No BASIC, exigir location_id
@@ -1045,6 +1131,23 @@ def dashboard_create_appointment():
         if not any(l.id == int(location_id) for l in service.locations):
             flash('Este serviço não é oferecido no local selecionado.', 'danger')
             return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
+
+    # Cria cliente rápido se não selecionado da lista
+    if not customer_id and customer_name:
+        cust = Customer(name=customer_name, phone=customer_phone or None)
+        db.session.add(cust)
+        db.session.commit()
+        if current_user not in cust.admins:
+            cust.admins.append(current_user)
+            db.session.commit()
+        customer = cust
+    else:
+        customer = Customer.query.get_or_404(customer_id)
+
+    # Valida disponibilidade do slot
+    if not _is_slot_available(profissional, inicio, service.duration, current_user, location_id=(location_id if require_location else None)):
+        flash('Horário indisponível para este serviço.', 'danger')
+        return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
 
     appointment = Appointment(
         professional_id=profissional.id,
@@ -1156,6 +1259,19 @@ def dashboard_available_times():
                 slots.append(slot_time.strftime("%H:%M"))
             slot_time += timedelta(minutes=15)
     return jsonify({'ok': True, 'slots': slots})
+
+@main.route('/api/customers/search')
+@login_required
+def api_search_customers():
+    if current_user.role != 'admin':
+        abort(403)
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({'ok': True, 'results': []})
+    # Somente clientes que já tiveram agenda neste salão
+    sub = db.session.query(Appointment.customer_id).join(Professional).filter(Professional.admin_id == current_user.id).distinct().subquery()
+    customers = Customer.query.filter(Customer.id.in_(sub), Customer.name.ilike(f"%{q}%")).order_by(Customer.name.asc()).limit(10).all()
+    return jsonify({'ok': True, 'results': [{'id': c.id, 'name': c.name, 'phone': c.phone} for c in customers]})
 
 @main.route('/dashboard/cancelar/<int:agendamento_id>', methods=['POST'])
 @login_required

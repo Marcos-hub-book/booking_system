@@ -1,15 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:360px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:14px;">
   <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Escolha o local de atendimento</h2>
-  <form method="POST" style="display:flex;flex-direction:column;gap:10px;">
-    <select name="location_id" required style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
-      <option value="">Selecione um local</option>
+  <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
       {% for loc in locations %}
-        <option value="{{ loc.id }}">{{ loc.name }}</option>
+      <label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:12px;cursor:pointer;">
+        <input type="radio" name="location_id" value="{{ loc.id }}" required>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="font-weight:600;">{{ loc.name }}</div>
+          {% if loc.schedules %}
+          <div style="color:#6b7280;font-size:0.92rem;">Disponibilidade configurada</div>
+          {% else %}
+          <div style="color:#6b7280;font-size:0.92rem;">Sem horários definidos</div>
+          {% endif %}
+        </div>
+      </label>
       {% endfor %}
-    </select>
-    <div style="display:flex;gap:8px;">
+    </div>
+    <div style="display:flex;gap:10px;">
       <a href="{{ back_url }}" style="flex:1;text-align:center;background:#fff;color:#232323;border:1px solid #e3e7eb;border-radius:10px;padding:12px 0;text-decoration:none;">Voltar</a>
       <button type="submit" style="flex:1;background:#232323;color:#fff;border:none;border-radius:10px;padding:12px 0;">Continuar</button>
     </div>
