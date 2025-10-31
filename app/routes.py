@@ -637,30 +637,43 @@ def webhook_mercadopago():
     if not preapproval_id and isinstance(data.get('resource'), dict):
         if 'id' in data['resource']:
             preapproval_id = data['resource']['id']
+    # Às vezes 'resource' vem como string URL
+    if not preapproval_id and isinstance(data.get('resource'), str):
+        res = data.get('resource')
+        if '/preapproval/' in res:
+            try:
+                preapproval_id = res.split('/preapproval/', 1)[1].split('?')[0].strip('/ ')
+            except Exception:
+                pass
     if not preapproval_id:
         preapproval_id = request.args.get('id')
     if not preapproval_id and 'subscription_id' in data:
         preapproval_id = data['subscription_id']
+    # Alguns payloads trazem explicitamente 'preapproval_id' aninhado
+    if not preapproval_id and isinstance(data.get('data'), dict):
+        if 'preapproval_id' in data['data']:
+            preapproval_id = data['data']['preapproval_id']
 
     if not preapproval_id:
         current_app.logger.warning(f"Webhook: preapproval_id not found. Payload: {data}, Args: {request.args}")
         return jsonify({'ok': False, 'error': 'preapproval_id not found'}), 400
 
-    # Busca preapproval e atualiza usuário
+    # Antes de chamar a API do MP, verifique se temos um usuário local com esse subscription_id.
+    user = User.query.filter_by(subscription_id=preapproval_id).first()
+    if not user:
+        # Não temos esse ID localmente; provavelmente outro tipo de assinatura/evento.
+        current_app.logger.info(f"Webhook ignorado: nenhum usuário local com subscription_id={preapproval_id}. Evitando chamada ao MP.")
+        return jsonify({'ok': True, 'ignored': True, 'reason': 'unknown subscription_id'}), 200
+
+    # Busca preapproval no MP e atualiza usuário
     try:
         current_app.logger.info(f"Webhook: preapproval_id recebido: {preapproval_id}")
         preapproval = _mp_get_preapproval(preapproval_id)
         current_app.logger.info(f"Webhook: preapproval data: {preapproval}")
-        # Localiza usuário pelo subscription_id
-        user = User.query.filter_by(subscription_id=preapproval_id).first()
-        if user:
-            _apply_preapproval_to_user(user, preapproval)
-            db.session.commit()
-            current_app.logger.info(f"Webhook: assinatura atualizada para user_id={user.id}, status={user.subscription_status}")
-            return jsonify({'ok': True, 'user_id': user.id, 'status': user.subscription_status})
-        else:
-            current_app.logger.warning(f"Webhook: user not found for subscription_id={preapproval_id}")
-            return jsonify({'ok': False, 'error': 'user not found'}), 404
+        _apply_preapproval_to_user(user, preapproval)
+        db.session.commit()
+        current_app.logger.info(f"Webhook: assinatura atualizada para user_id={user.id}, status={user.subscription_status}")
+        return jsonify({'ok': True, 'user_id': user.id, 'status': user.subscription_status})
     except Exception as e:
         current_app.logger.error(f"Webhook: erro ao processar preapproval_id={preapproval_id}. Exception: {e}")
         current_app.logger.exception('Erro no webhook Mercado Pago: %s', e)
