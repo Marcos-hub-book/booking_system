@@ -620,8 +620,8 @@ def webhook_mercadopago():
 
     # Try to extract preapproval_id from multiple possible fields
     preapproval_id = None
-    # Direct notification
-    if 'id' in data and (data.get('type') == 'preapproval' or data.get('type') == 'subscription'):
+    # Direct notification (aceita 'preapproval', 'subscription', 'subscription_preapproval')
+    if 'id' in data and (data.get('type') in ['preapproval', 'subscription', 'subscription_preapproval'] or data.get('entity') == 'preapproval'):
         preapproval_id = data['id']
     # Sometimes Mercado Pago sends 'data' field with 'id'
     if not preapproval_id and isinstance(data.get('data'), dict):
@@ -644,7 +644,9 @@ def webhook_mercadopago():
 
     # Busca preapproval e atualiza usuário
     try:
+        current_app.logger.info(f"Webhook: preapproval_id recebido: {preapproval_id}")
         preapproval = _mp_get_preapproval(preapproval_id)
+        current_app.logger.info(f"Webhook: preapproval data: {preapproval}")
         # Localiza usuário pelo subscription_id
         user = User.query.filter_by(subscription_id=preapproval_id).first()
         if user:
@@ -656,8 +658,9 @@ def webhook_mercadopago():
             current_app.logger.warning(f"Webhook: user not found for subscription_id={preapproval_id}")
             return jsonify({'ok': False, 'error': 'user not found'}), 404
     except Exception as e:
+        current_app.logger.error(f"Webhook: erro ao processar preapproval_id={preapproval_id}. Exception: {e}")
         current_app.logger.exception('Erro no webhook Mercado Pago: %s', e)
-        return jsonify({'ok': False, 'error': str(e)}), 500
+        return jsonify({'ok': False, 'error': str(e), 'preapproval_id': preapproval_id}), 500
 
 @main.route('/billing/cancel', methods=['POST'])
 @login_required
