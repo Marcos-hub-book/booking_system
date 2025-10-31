@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, DateField, TimeField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 from flask_wtf.file import FileField, FileAllowed
+from wtforms.validators import Regexp
 
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -19,6 +20,7 @@ class RegistrationForm(FlaskForm):
     cidade = StringField('Cidade', validators=[Length(max=64)])
     estado = StringField('Estado', validators=[Length(max=2)])
     email = StringField('Email', validators=[DataRequired(), Email()])
+    cpf = StringField('CPF', validators=[DataRequired(), Regexp(r'^\d{11}$', message='CPF deve conter 11 dígitos (somente números).')])
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmar senha', validators=[DataRequired(), EqualTo('password')])
     profile_photo = FileField('Foto de perfil', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Somente imagens são permitidas.')])

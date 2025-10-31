@@ -107,7 +107,15 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-4) Configurar banco de dados
+4) Variáveis de ambiente necessárias (desenvolvimento)
+```powershell
+$env:CPF_ENCRYPTION_KEY = "<chave_fernet_base64>"   # gere com Python: from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())
+$env:CPF_HASH_SALT = "minha_salt_forte"
+# Mercado Pago (será usado na integração de assinaturas)
+$env:MERCADO_PAGO_ACCESS_TOKEN = "<seu_access_token>"
+```
+
+5) Configurar banco de dados
 - Ajuste a URI no `config.py`.
 - Rodar migrações (se ainda não inicializado o Alembic, faça apenas uma vez o init):
 ```powershell
@@ -146,6 +154,29 @@ Abra http://127.0.0.1:5000.
 
 ## Licença
 MIT
+
+## Planos, Trial e Cobrança
+
+- Página de planos: `/planos` (após cadastro)
+- Trial: 30 dias grátis (uma vez por CPF). Inicia via botão “Teste grátis por 30 dias”.
+- Billing: `/billing` exibe status; `/billing/expired` bloqueia acesso quando expira.
+- Menu Dashboard → “Plano e cobrança”.
+
+Campos criados no usuário (admin):
+- cpf_encrypted (criptografado com Fernet) e cpf_hash (SHA-256 + salt)
+- plan (free/basic/pro/advanced)
+- subscription_status (trial/active/canceled/expired)
+- trial_started_at, trial_ends_at, trial_consumed
+- subscription_provider, subscription_id, current_period_end_at, canceled_at
+
+Integração Mercado Pago (em progresso):
+- Endpoint `/subscriptions/create` (stub) e webhook `/webhooks/mercadopago` (stub).
+- Usaremos Preapproval (assinaturas) com idempotência e verificação de webhook.
+
+Gates por plano:
+- Basic: 1 profissional (padrão), Locais ilimitados.
+- Pro: até 2 profissionais.
+- Avançado: até 5 profissionais.
 
 ## Planos (Free, Basic, Pro)
 

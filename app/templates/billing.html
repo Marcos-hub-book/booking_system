@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:520px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+  <h2 style="text-align:center;font-weight:700;">Plano e Cobrança</h2>
+  <div style="background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div>
+        <div>Plano atual: <strong>{{ (current_user.plan or 'free')|upper }}</strong></div>
+        <div>Status: <strong>{{ current_user.subscription_status or 'sem assinatura' }}</strong></div>
+      </div>
+      {% if days_left is not none %}
+      <div style="background:#fff3cd;border:1px solid #ffe69c;color:#8a6d3b;border-radius:8px;padding:6px 10px;">{{ days_left }} dias restantes</div>
+      {% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('main.planos') }}" style="flex:1;text-align:center;background:#232323;color:#fff;border:none;border-radius:10px;padding:12px 0;text-decoration:none;">Alterar plano</a>
+    <form method="post" action="{{ url_for('main.subscriptions_create') }}" style="flex:1;">
+      <input type="hidden" name="plan" value="{{ current_user.plan }}">
+      <button type="submit" style="width:100%;background:#fff;color:#232323;border:1px solid #e3e7eb;border-radius:10px;padding:12px 0;">Assinar</button>
+    </form>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:10px;">
+    {% if current_user.subscription_status in ['trial','active','pending'] %}
+    <form method="post" action="{{ url_for('main.billing_cancel') }}" style="flex:1;">
+      <button type="submit" style="width:100%;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:10px;padding:12px 0;">Cancelar assinatura</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('main.account_close') }}" style="flex:1;text-align:center;background:#fff;color:#7c2d12;border:1px solid #ffedd5;border-radius:10px;padding:12px 0;text-decoration:none;">Encerrar conta</a>
+  </div>
+</div>
+{% endblock %}

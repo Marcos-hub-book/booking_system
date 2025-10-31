@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:520px;margin:20px auto;padding:16px;">
+  <h2 style="font-weight:700;margin-bottom:8px;">Encerrar conta</h2>
+  <div style="background:#fff8f1;border:1px solid #ffedd5;color:#7c2d12;border-radius:12px;padding:12px;margin-bottom:12px;">
+    <p style="margin:0 0 8px;">Esta ação é permanente e removerá todos os seus dados: profissionais, serviços, locais, horários e agendamentos.</p>
+    <p style="margin:0;">Se você possui uma assinatura ativa, vamos cancelar antes de encerrar.</p>
+  </div>
+  <form method="post" style="display:flex;gap:8px;justify-content:flex-end;">
+    <a href="{{ url_for('main.dashboard') }}" style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;text-decoration:none;color:#232323;">Cancelar</a>
+    <button type="submit" style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:10px 14px;">Encerrar conta</button>
+  </form>
+</div>
+{% endblock %}

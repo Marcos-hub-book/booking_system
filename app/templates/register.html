@@ -66,6 +66,15 @@
         </div>
 
         <div class="form-group">
+            {{ form.cpf.label(class="form-label") }}
+            {{ form.cpf(class="form-control", placeholder="Somente números (11 dígitos)") }}
+            <small class="text-muted">Usamos o CPF apenas para liberar 1 teste grátis por pessoa.</small>
+            {% for error in form.cpf.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
             {{ form.password.label(class="form-label") }}
             {{ form.password(class="form-control", placeholder="Senha") }}
         </div>

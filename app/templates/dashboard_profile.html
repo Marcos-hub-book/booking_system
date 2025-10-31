@@ -14,13 +14,13 @@
     <input type="text" name="full_name" value="{{ current_user.full_name }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
     <label>Telefone</label>
     <input type="text" name="phone" value="{{ current_user.phone }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
-    <label>Plano</label>
-    <select name="plan" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
-      {% set p = (current_user.plan or 'free')|lower %}
-      <option value="free" {% if p=='free' %}selected{% endif %}>Free (1 profissional, sem locais)</option>
-      <option value="basic" {% if p=='basic' %}selected{% endif %}>Basic (multi-locais, sem multi-profissional)</option>
-      <option value="pro" {% if p=='pro' %}selected{% endif %}>Pro (multi-profissional, sem locais)</option>
-    </select>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#f9fafb;border:1px solid #e3e7eb;border-radius:10px;padding:10px;">
+      <div>
+        <div style="font-size:0.9rem;color:#6b7280;">Plano atual</div>
+        <div style="font-weight:600;">{{ (current_user.plan or 'free')|upper }}</div>
+      </div>
+      <a href="{{ url_for('main.billing') }}" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:8px 12px;text-decoration:none;">Gerenciar</a>
+    </div>
     <label>Foto de perfil</label>
     <input type="file" name="profile_photo" accept="image/*" style="padding:8px;border:1px solid #e3e7eb;border-radius:10px;">
     <div style="display:flex;gap:10px;justify-content:flex-end;">

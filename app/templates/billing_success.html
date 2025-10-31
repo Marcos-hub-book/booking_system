@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Assinatura Confirmada{% endblock %}
+{% block content %}
+<div style="max-width:600px;margin:40px auto;padding:20px">
+  <div style="text-align:center">
+    <div style="font-size:64px;line-height:1">✅</div>
+    <h1 style="margin:16px 0 8px">Assinatura confirmada</h1>
+    <p style="color:#555">Sua assinatura foi confirmada pelo Mercado Pago. Obrigado por apoiar nossa plataforma.</p>
+  </div>
+
+  <div style="margin-top:24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+    <p style="margin:0 0 8px;color:#374151">
+      Plano atual: <strong>{{ current_user.plan|capitalize if current_user.plan else '—' }}</strong>
+    </p>
+    <p style="margin:0 0 8px;color:#374151">
+      Status: <strong>{{ current_user.subscription_status or '—' }}</strong>
+    </p>
+    <p style="margin:0;color:#374151">
+      Próxima renovação: <strong>{{ (current_user.current_period_end_at.strftime('%d/%m/%Y') if current_user.current_period_end_at) else '—' }}</strong>
+    </p>
+  </div>
+
+  <div style="display:flex;gap:12px;justify-content:center;margin-top:24px">
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">Ir para o painel</a>
+    <a href="{{ url_for('main.billing') }}" class="btn btn-secondary">Ver cobrança</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:380px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+  <h2 style="text-align:center;font-weight:700;">Login da Plataforma</h2>
+  <form method="post" style="display:flex;flex-direction:column;gap:10px;">
+    <label for="username">Usuário</label>
+    <input id="username" name="username" type="text" autocomplete="username" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;">
+
+    <label for="password">Senha</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;">
+
+    <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 14px;">Entrar</button>
+  </form>
+  <p style="color:#6b7280;font-size:0.9rem;">Use as variáveis de ambiente PLATFORM_ADMIN_USER e PLATFORM_ADMIN_PASS para configurar as credenciais.
+    Padrão: platform / platform123 (alterar em produção).</p>
+</div>
+{% endblock %}

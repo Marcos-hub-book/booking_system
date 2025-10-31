@@ -6,6 +6,15 @@
     <button id="btn-menu" aria-label="menu" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">&#9776;</button>
   </div>
 
+  {% if current_user.subscription_status == 'trial' and current_user.trial_ends_at %}
+  <div style="width:100%;margin-bottom:8px;">
+    <span style="display:inline-flex;align-items:center;gap:8px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:6px 10px;border-radius:999px;font-size:0.85rem;">
+      <span style="width:8px;height:8px;border-radius:999px;background:#10b981;"></span>
+      Trial ativo até {{ current_user.trial_ends_at.strftime('%d/%m/%Y') }}
+    </span>
+  </div>
+  {% endif %}
+
   
 
   <div style="width:100%;display:flex;align-items:center;gap:10px;overflow-x:auto;margin-bottom:12px;">
@@ -57,12 +66,17 @@
     <div style="display:flex;flex-direction:column;gap:10px;">
       <a href="{{ url_for('main.dashboard_profile') }}" style="text-decoration:none;color:#232323;">Meu perfil</a>
       <a href="{{ url_for('main.services_list') }}" style="text-decoration:none;color:#232323;">Serviços</a>
+      <a href="{{ url_for('main.billing') }}" style="text-decoration:none;color:#232323;">Plano e cobrança</a>
       {% if (current_user.plan or 'free')|lower != 'basic' %}
         <a href="{{ url_for('main.add_professional') }}" style="text-decoration:none;color:#232323;">Adicionar profissional</a>
       {% endif %}
       {% if (current_user.plan or 'free')|lower == 'basic' %}
         <a href="{{ url_for('main.locations_list') }}" style="text-decoration:none;color:#232323;">Locais de atendimento</a>
       {% endif %}
+      <a href="{{ url_for('main.account_close') }}" style="text-decoration:none;color:#7c2d12;">Encerrar conta</a>
+      <form method="post" action="{{ url_for('main.logout') }}">
+        <button type="submit" style="width:100%;text-align:left;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;color:#232323;">Sair</button>
+      </form>
     </div>
   </div>
 
@@ -237,7 +251,7 @@
 <div id="modal-appointment" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:95;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:12px;padding:16px;width:90%;max-width:420px;">
     <h3 style="margin:0 0 12px;">Adicionar agendamento</h3>
-    <form method="post" action="{{ url_for('main.dashboard_create_appointment') }}" style="display:flex;flex-direction:column;gap:10px;">
+  <form method="post" action="{{ url_for('main.dashboard_add_event') }}" style="display:flex;flex-direction:column;gap:10px;">
       <input type="hidden" name="data" value="{{ data.strftime('%Y-%m-%d') }}">
       <select id="ap-prof" name="profissional_id" required style="padding:8px;border-radius:8px;border:1px solid #e3e7eb;">
         <option value="">Profissional</option>

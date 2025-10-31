@@ -33,6 +33,17 @@ class User(db.Model):
     estado = db.Column(db.String(2))
     profile_photo = db.Column(db.String(256))  # caminho da foto
     plan = db.Column(db.String(32), default="free")
+    # Billing/trial fields
+    cpf_encrypted = db.Column(db.String(256))
+    cpf_hash = db.Column(db.String(128), index=True)
+    trial_started_at = db.Column(db.DateTime, nullable=True)
+    trial_ends_at = db.Column(db.DateTime, nullable=True)
+    trial_consumed = db.Column(db.Boolean, default=False)
+    subscription_status = db.Column(db.String(32), nullable=True)  # trial/active/canceled/expired
+    subscription_provider = db.Column(db.String(32), nullable=True)  # e.g., 'mercadopago'
+    subscription_id = db.Column(db.String(128), nullable=True)  # provider preapproval id
+    current_period_end_at = db.Column(db.DateTime, nullable=True)
+    canceled_at = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
         self.password = generate_password_hash(password)

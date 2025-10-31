@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app
+from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
 from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule
@@ -7,11 +7,109 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, or_
 from .forms import LoginForm, RegistrationForm, AppointmentForm
 from sqlalchemy.orm import joinedload
+from decimal import Decimal
 import os
 import jwt
+import hashlib
+from cryptography.fernet import Fernet, InvalidToken
 from werkzeug.utils import secure_filename
+import requests
 
 main = Blueprint('main', __name__)
+
+# ==========================
+# Plataforma Admin: login e painel de contas
+# ==========================
+
+def _platform_admin_authenticated():
+    return session.get('platform_admin') is True
+
+def _platform_admin_check_credentials(username, password):
+    user_env = os.environ.get('PLATFORM_ADMIN_USER', 'platform')
+    pass_env = os.environ.get('PLATFORM_ADMIN_PASS', 'platform123')
+    return username == user_env and password == pass_env
+
+@main.route('/platform/admin/login', methods=['GET', 'POST'])
+def platform_admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        if _platform_admin_check_credentials(username, password):
+            session['platform_admin'] = True
+            flash('Login de plataforma realizado com sucesso.', 'success')
+            return redirect(url_for('main.platform_accounts'))
+        flash('Credenciais inválidas.', 'danger')
+        return render_template('platform_admin_login.html')
+    return render_template('platform_admin_login.html')
+
+@main.route('/platform/admin/logout', methods=['POST'])
+def platform_admin_logout():
+    session.pop('platform_admin', None)
+    flash('Logout realizado.', 'success')
+    return redirect(url_for('main.platform_admin_login'))
+
+@main.route('/platform/accounts', methods=['GET'])
+def platform_accounts():
+    if not _platform_admin_authenticated():
+        return redirect(url_for('main.platform_admin_login'))
+    users = User.query.filter_by(role='admin').order_by(User.id.desc()).all()
+    return render_template('platform_accounts.html', users=users)
+
+# Ações de trial: iniciar, expirar, estender
+def _platform_admin_required():
+    if not _platform_admin_authenticated():
+        abort(403)
+
+@main.route('/platform/accounts/<int:user_id>/trial/start', methods=['POST'])
+def platform_account_trial_start(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    if not user.trial_started_at:
+        now = datetime.now()
+        user.trial_started_at = now
+        user.trial_ends_at = now + timedelta(days=30)
+        user.trial_consumed = True
+        user.subscription_status = 'trial'
+        db.session.commit()
+        flash('Trial iniciado para o usuário.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/expire', methods=['POST'])
+def platform_account_trial_expire(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    if user.trial_ends_at and user.subscription_status == 'trial':
+        user.trial_ends_at = datetime.now()
+        user.subscription_status = 'expired'
+        db.session.commit()
+        flash('Trial expirado para o usuário.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/extend', methods=['POST'])
+def platform_account_trial_extend(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    days = request.form.get('days', type=int)
+    if user.trial_ends_at and days and days > 0:
+        user.trial_ends_at += timedelta(days=days)
+        db.session.commit()
+        flash(f'Trial estendido em {days} dias.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/dashboard/add_event', endpoint='dashboard_add_event', methods=['POST'])
+@login_required
+def dashboard_add_event():
+    # Apenas salva um bloqueio ou evento simples (mock)
+    flash('Evento/bloqueio adicionado (mock).', 'success')
+    return redirect(url_for('main.dashboard'))
+
+@main.route('/dashboard/profile', endpoint='dashboard_profile', methods=['GET'])
+@login_required
+def dashboard_profile():
+    if current_user.role != 'admin':
+        abort(403)
+    return render_template('dashboard_profile.html')
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -20,6 +118,13 @@ def load_user(user_id):
 @main.route('/')
 def index():
     return render_template('index.html')
+
+# Simple alias route used by templates; redirect to dashboard for admins or login otherwise
+@main.route('/schedule')
+def schedule():
+    if current_user.is_authenticated and getattr(current_user, 'role', None) == 'admin':
+        return redirect(url_for('main.dashboard'))
+    return redirect(url_for('main.login'))
 
 
 # ==========================
@@ -73,6 +178,35 @@ def load_customer_from_cookie():
 @main.app_context_processor
 def inject_customer_name():
     return {'customer_name': getattr(g, 'customer_name', None)}
+
+# ==========================
+# Billing/Plans helpers
+# ==========================
+
+def _get_cpf_key():
+    """Return a valid Fernet key (base64 url-safe 32 bytes).
+    Production-like: require CPF_ENCRYPTION_KEY to be set and valid; no fallback generation.
+    """
+    key = os.environ.get('CPF_ENCRYPTION_KEY')
+    if not key:
+        raise RuntimeError('CPF_ENCRYPTION_KEY não configurada no ambiente.')
+    try:
+        # validate
+        Fernet(key.encode('utf-8'))
+    except Exception as e:
+        raise RuntimeError('CPF_ENCRYPTION_KEY inválida. Deve ser base64 url-safe de 32 bytes.') from e
+    return key
+
+def _encrypt_cpf(cpf_digits: str) -> str:
+    f = Fernet(_get_cpf_key())
+    return f.encrypt(cpf_digits.encode('utf-8')).decode('utf-8')
+
+def _hash_cpf(cpf_digits: str) -> str:
+    salt = os.environ.get('CPF_HASH_SALT', 'salt')
+    return hashlib.sha256((cpf_digits + '|' + salt).encode('utf-8')).hexdigest()
+
+def is_advanced(user: User) -> bool:
+    return (user.plan or 'free').lower() in ('advanced','avancado')
 
 # ==========================
 # Helpers de Plano (Free/Basic/Pro)
@@ -308,6 +442,19 @@ def logout_customer():
 def register():
     form = RegistrationForm()
     if form.validate_on_submit():
+        # CPF validation (basic): ensure 11 digits and checksum
+        raw_cpf = (form.cpf.data or '').strip()
+        cpf_digits = ''.join([c for c in raw_cpf if c.isdigit()])
+        if len(cpf_digits) != 11 or not _validate_cpf_checksum(cpf_digits):
+            flash('CPF inválido. Use apenas números (11 dígitos).', 'danger')
+            return render_template('register.html', form=form)
+        try:
+            enc = _encrypt_cpf(cpf_digits)
+            hsh = _hash_cpf(cpf_digits)
+        except Exception as e:
+            current_app.logger.exception('Falha na criptografia/validação do CPF: %s', e)
+            flash('Falha de configuração de segurança (CPF). Configure a variável CPF_ENCRYPTION_KEY corretamente e tente novamente.', 'danger')
+            return render_template('register.html', form=form)
         new_user = User(
             username=form.username.data,
             full_name=form.full_name.data,
@@ -320,7 +467,9 @@ def register():
             cidade=form.cidade.data,
             estado=form.estado.data,
             role='admin',
-            plan="free"
+            plan="free",
+            cpf_encrypted=enc,
+            cpf_hash=hsh
         )
         new_user.set_password(form.password.data)
         db.session.add(new_user)
@@ -342,1129 +491,463 @@ def register():
             rel_path = rel_path.replace('\\', '/')
             new_user.profile_photo = rel_path
             db.session.commit()
-        flash('Conta criada com sucesso! Você pode agora fazer login.', 'success')
-        return redirect(url_for('main.login'))
+        flash('Conta criada com sucesso! Escolha um plano para começar.', 'success')
+        # Autentica o novo admin imediatamente para que o fluxo de planos/trial use este usuário
+        try:
+            login_user(new_user)
+        except Exception:
+            current_app.logger.warning('Não foi possível autenticar automaticamente o novo usuário após cadastro.')
+        return redirect(url_for('main.planos'))
     return render_template('register.html', form=form)
 
-@main.route('/dashboard', methods=['GET', 'POST'])
+def _validate_cpf_checksum(cpf: str) -> bool:
+    # Basic CPF checksum validation
+    if cpf == cpf[0] * 11:
+        return False
+    def calc(digs):
+        s = sum(int(d)*w for d, w in zip(digs, range(len(digs)+1, 1, -1)))
+        r = (s * 10) % 11
+        return 0 if r == 10 else r      # corrigido: else
+    d1 = calc(cpf[:9])
+    d2 = calc(cpf[:9] + str(d1))
+    return cpf[-2:] == f"{d1}{d2}"
+
+@main.route('/planos', methods=['GET'])
+@login_required
+def planos():
+    if current_user.role != 'admin':
+        abort(403)
+    return render_template('planos.html')
+
+@main.route('/planos/trial', methods=['POST'])
+@login_required
+def planos_trial():
+    if current_user.role != 'admin':
+        abort(403)
+    plan_code = (request.form.get('plan') or '').lower()
+    if plan_code not in ('basic','pro','advanced','avancado'):
+        flash('Plano inválido.', 'danger')
+        return redirect(url_for('main.planos'))
+    # Trial eligibility: one per CPF (inclusive self) e não repetir para o mesmo usuário
+    if not current_user.cpf_hash:
+        flash('CPF ausente no cadastro. Atualize seu perfil.', 'danger')
+        return redirect(url_for('main.planos'))
+    if current_user.trial_consumed:
+        flash('Você já utilizou um teste grátis anteriormente.', 'warning')
+        return redirect(url_for('main.billing'))
+    used = User.query.filter(User.cpf_hash == current_user.cpf_hash, User.trial_consumed == True, User.id != current_user.id).first()
+    if used:
+        flash('Você já utilizou um teste grátis anteriormente.', 'warning')
+        return redirect(url_for('main.billing'))
+    # Start trial
+    now = datetime.now()
+    current_user.plan = 'advanced' if plan_code in ('advanced','avancado') else plan_code
+    current_user.subscription_status = 'trial'
+    current_user.trial_started_at = now
+    current_user.trial_ends_at = now + timedelta(days=30)
+    current_user.trial_consumed = True
+    db.session.commit()
+    flash('Teste grátis iniciado! Aproveite 30 dias.', 'success')
+    return redirect(url_for('main.dashboard'))
+
+@main.route('/billing')
+@login_required
+def billing():
+    if current_user.role != 'admin':
+        abort(403)
+    # Compute days left
+    days_left = None
+    if current_user.subscription_status == 'trial' and current_user.trial_ends_at:
+        days_left = (current_user.trial_ends_at.date() - datetime.today().date()).days
+    return render_template('billing.html', days_left=days_left)
+
+@main.route('/billing/expired')
+@login_required
+def billing_expired():
+    if current_user.role != 'admin':
+        abort(403)
+    return render_template('billing_expired.html')
+
+
+@main.route('/billing/success')
+@login_required
+def billing_success():
+    if current_user.role != 'admin':
+        abort(403)
+    preapproval_id = request.args.get('preapproval_id')
+    # Se não veio na URL, tenta pegar do usuário
+    if not preapproval_id and getattr(current_user, 'subscription_id', None):
+        preapproval_id = current_user.subscription_id
+    if preapproval_id:
+        try:
+            data = _mp_get_preapproval(preapproval_id)
+            _apply_preapproval_to_user(current_user, data)
+            db.session.commit()
+            if current_user.subscription_status == 'active':
+                flash('Assinatura ativada com sucesso!', 'success')
+        except Exception as e:
+            current_app.logger.exception("Erro ao confirmar assinatura: %s", e)
+            flash('Falha ao confirmar assinatura.', 'danger')
+    else:
+        flash('ID da assinatura não encontrado.', 'warning')
+    return render_template('billing_success.html')
+
+# ==========================
+# Webhook Mercado Pago
+# ==========================
+import hmac
+import hashlib
+
+@main.route('/webhook/mercadopago', methods=['POST'])
+def webhook_mercadopago():
+    # Opcional: validar assinatura/hmac se configurado no Mercado Pago
+    # Exemplo: header 'X-Hub-Signature' ou 'X-Request-Signature'
+    # signature = request.headers.get('X-Hub-Signature')
+    # if signature:
+    #     secret = os.environ.get('MP_WEBHOOK_SECRET', '')
+    #     body = request.get_data()
+    #     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    #     if not hmac.compare_digest(signature, expected):
+    #         return 'Invalid signature', 403
+
+    data = request.get_json(silent=True) or {}
+    # Mercado Pago envia vários tipos de notificação, mas para assinatura o importante é preapproval
+    preapproval_id = None
+    # Notificação direta
+    if 'id' in data and data.get('type') == 'preapproval':
+        preapproval_id = data['id']
+    # Notificação via query string
+    if not preapproval_id:
+        preapproval_id = request.args.get('id')
+    if not preapproval_id:
+        return jsonify({'ok': False, 'error': 'preapproval_id not found'}), 400
+    # Busca preapproval e atualiza usuário
+    try:
+        preapproval = _mp_get_preapproval(preapproval_id)
+        # Localiza usuário pelo subscription_id
+        user = User.query.filter_by(subscription_id=preapproval_id).first()
+        if user:
+            _apply_preapproval_to_user(user, preapproval)
+            db.session.commit()
+            return jsonify({'ok': True, 'user_id': user.id, 'status': user.subscription_status})
+        else:
+            return jsonify({'ok': False, 'error': 'user not found'}), 404
+    except Exception as e:
+        current_app.logger.exception('Erro no webhook Mercado Pago: %s', e)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@main.route('/billing/cancel', methods=['POST'])
+@login_required
+def billing_cancel():
+    if current_user.role != 'admin':
+        abort(403)
+    try:
+        if (current_user.subscription_provider == 'mercadopago') and current_user.subscription_id:
+            try:
+                _mp_cancel_preapproval(current_user.subscription_id)
+            except Exception as e:
+                current_app.logger.exception('Erro ao cancelar no Mercado Pago: %s', e)
+                flash('Não foi possível cancelar no Mercado Pago agora. Tente novamente em instantes.', 'warning')
+                return redirect(url_for('main.billing'))
+        # Atualiza estado local
+        current_user.subscription_status = 'canceled'
+        current_user.canceled_at = datetime.now()
+        current_user.current_period_end_at = None
+        current_user.plan = 'free'
+        db.session.commit()
+        flash('Assinatura cancelada com sucesso.', 'success')
+    except Exception as e:
+        current_app.logger.exception('Falha ao cancelar assinatura localmente: %s', e)
+        flash('Falha ao cancelar assinatura.', 'danger')
+    return redirect(url_for('main.billing'))
+
+@main.route('/account/close', methods=['GET'])
+@login_required
+def account_close():
+    if current_user.role != 'admin':
+        abort(403)
+    return render_template('account_close.html')
+
+@main.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():
     if current_user.role != 'admin':
         abort(403)
-
-    # Plano BASIC: garante o profissional padrão
-    if is_basic(current_user):
-        ensure_default_professional(current_user)
-
-    # Filtros
-    data_str = request.args.get('data')
-    profissional_id = request.args.get('profissional_id', type=int)
-    status = request.args.get('status', 'ativos')
-
-    # Data padrão: hoje
-    if data_str:
-        data = datetime.strptime(data_str, "%Y-%m-%d").date()
-    else:
+    # Minimal agenda dashboard context to avoid errors if data is missing
+    try:
+        date_str = request.args.get('data')
+        data = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.today().date()
+    except Exception:
         data = datetime.today().date()
-
-    # Profissionais do salão
+    profissional_id = request.args.get('profissional_id', type=int)
+    status = request.args.get('status', default='ativos')
     profissionais = Professional.query.filter_by(admin_id=current_user.id).all()
-
-    # Filtro de profissional
-    if profissional_id:
-        profissional = Professional.query.filter_by(id=profissional_id, admin_id=current_user.id).first()
-        if not profissional:
-            abort(404)
-        profissionais_ids = [profissional.id]
-    else:
-        profissionais_ids = [p.id for p in profissionais]
-
-    # Filtro de status
-    if status == 'cancelados':
-        status_filter = (Appointment.ativo == False)
-    else:
-        status_filter = (Appointment.ativo == True)
-
-    # Agendamentos do dia e profissionais filtrados
-    agendamentos = Appointment.query \
-        .filter(
-            Appointment.professional_id.in_(profissionais_ids),
-            func.date(Appointment.appointment_time) == data,
-            status_filter
-        ) \
-        .options(joinedload(Appointment.professional), joinedload(Appointment.service), joinedload(Appointment.customer), joinedload(Appointment.location)) \
-        .order_by(Appointment.appointment_time.asc()) \
-        .all()
-
-    # Para mostrar horários vagos, pegue todos os serviços para saber as durações
     servicos = Service.query.filter_by(admin_id=current_user.id).all()
+    locations = Location.query.filter_by(admin_id=current_user.id).all()
+    agendamentos = []
+    # Adiciona timedelta ao contexto para o template
+    return render_template('dashboard_agenda.html', data=data, profissional_id=profissional_id,
+                           status=status, profissionais=profissionais, servicos=servicos,
+                           locations=locations, agendamentos=agendamentos, timedelta=timedelta)
 
-    # Navegação de datas
-    prev_date = (data - timedelta(days=1)).strftime("%Y-%m-%d")
-    next_date = (data + timedelta(days=1)).strftime("%Y-%m-%d")
-    data = data.date() if isinstance(data, datetime) else data
-
-    # Em plano Basic, carregar Locais para o modal
-    locations = []
-    if is_basic(current_user):
-        locations = Location.query.filter_by(admin_id=current_user.id).all()
-
-    return render_template(
-        'dashboard_agenda.html',
-        profissionais=profissionais,
-        profissional_id=profissional_id,
-        agendamentos=agendamentos,
-        servicos=servicos,
-        locations=locations,
-        data=data,
-        prev_date=prev_date,
-        next_date=next_date,
-        status=status,
-        timedelta=timedelta
-    )
-
-@main.route('/schedule', methods=['GET', 'POST'])
-def schedule():
-    form = AppointmentForm()
-    form.service.choices = [(s.id, s.name) for s in Service.query.all()]
-    form.professional.choices = [(p.id, p.name) for p in Professional.query.all()]
-    if form.validate_on_submit():
-        if not current_user.is_authenticated:
-            flash('You need to register or log in to complete your appointment.', 'info')
-            return redirect(url_for('main.login'))
-        # Usuário logado: salva o agendamento
-        appointment = Appointment(
-            user_id=current_user.id,
-            professional_id=form.professional.data,
-            service_id=form.service.data,
-            appointment_time=datetime.combine(form.date.data, form.time.data)
-        )
-        db.session.add(appointment)
-        db.session.commit()
-        flash('Appointment scheduled!', 'success')
-        return redirect(url_for('main.my_appointments'))
-    return render_template('schedule.html', form=form)
-
-@main.route('/logout')
+@main.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('main.index'))
+    flash('Você saiu da conta.', 'success')
+    return redirect(url_for('main.login'))
 
-@main.route('/add_professional', methods=['GET', 'POST'])
-@login_required
-def add_professional():
-    if current_user.role != 'admin':
-        abort(403)
-    # Regras de plano
-    if is_basic(current_user):
-        flash('Seu plano (Basic) não permite adicionar profissionais. Gerencie horários pelos Locais.', 'warning')
-        return redirect(url_for('main.professionals_list'))
-    if is_free(current_user):
-        count = Professional.query.filter_by(admin_id=current_user.id).count()
-        if count >= 1:
-            flash('Plano Free permite apenas 1 profissional.', 'warning')
-            return redirect(url_for('main.professionals_list'))
-    if request.method == 'POST':
-        name = request.form.get('name')
-        if name:
-            new_prof = Professional(name=name, admin_id=current_user.id)
-            db.session.add(new_prof)
-            db.session.commit()
-
-            # Após salvar o Professional:
-            workdays = request.form.getlist('workdays')
-            for i in range(7):
-                if str(i) in workdays:
-                    start = request.form.get(f'start_{i}')
-                    end = request.form.get(f'end_{i}')
-                    break_start = request.form.get(f'break_start_{i}') or None
-                    break_end = request.form.get(f'break_end_{i}') or None
-                    if start and end:
-                        schedule = ProfessionalSchedule(
-                            professional_id=new_prof.id,
-                            weekday=i,
-                            start_time=start,
-                            end_time=end,
-                            break_start=break_start,
-                            break_end=break_end
-                        )
-                        db.session.add(schedule)
-            db.session.commit()
-
-            flash('Professional added successfully!', 'success')
-            return redirect(url_for('main.dashboard'))
-        flash('Name is required.', 'danger')
-    
-    return render_template('add_professional.html', back_url=url_for('main.professionals_list'))
-@main.route('/add_service', methods=['GET', 'POST'])
-@login_required
-def add_service():
-    if current_user.role != 'admin':
-        abort(403)
-    professionals = Professional.query.filter_by(admin_id=current_user.id).all()
-    locations = []
-    if is_basic(current_user):
-        # Garante que apenas o profissional padrão apareça e carrega Locais
-        professionals = [ensure_default_professional(current_user)]
-        locations = Location.query.filter_by(admin_id=current_user.id).all()
-    if request.method == 'POST':
-        name = request.form.get('name')
-        duration = request.form.get('duration')
-        price = request.form.get('price')
-        professional_ids = request.form.getlist('professional_ids')
-        location_ids = request.form.getlist('location_ids') if is_basic(current_user) else []
-        if not (name and duration and price and professional_ids):
-            flash('All fields are required.', 'danger')
-        else:
-            new_service = Service(
-                name=name,
-                duration=int(duration),
-                price=float(price),
-                admin_id=current_user.id
-            )
-            # Associa os profissionais selecionados
-            new_service.professionals = Professional.query.filter(Professional.id.in_(professional_ids)).all()
-            # No BASIC, associa Locais selecionados
-            if is_basic(current_user) and location_ids:
-                new_service.locations = Location.query.filter(
-                    Location.admin_id == current_user.id,
-                    Location.id.in_(location_ids)
-                ).all()
-            db.session.add(new_service)
-            db.session.commit()
-            flash('Service added successfully!', 'success')
-            return redirect(url_for('main.dashboard'))
-    return render_template('add_service.html', professionals=professionals, locations=locations)
-
-@main.route('/edit_service/<int:service_id>', methods=['GET', 'POST'])
-@login_required
-def edit_service(service_id):
-    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
-    if is_basic(current_user):
-        professionals = [ensure_default_professional(current_user)]
-        locations = Location.query.filter_by(admin_id=current_user.id).all()
-        selected_location_ids = [str(l.id) for l in service.locations]
-    else:
-        professionals = Professional.query.filter_by(admin_id=current_user.id).all()
-        locations = []
-        selected_location_ids = []
-    if request.method == 'POST':
-        name = request.form.get('name')
-        duration = request.form.get('duration', type=int)
-        price = request.form.get('price', type=float)
-        professional_ids = request.form.getlist('professional_ids')
-        location_ids = request.form.getlist('location_ids') if is_basic(current_user) else []
-        if name and duration and price is not None:
-            service.name = name
-            service.duration = duration
-            service.price = price
-            # Atualiza profissionais
-            service.professionals = [Professional.query.get(int(pid)) for pid in professional_ids]
-            # Atualiza Locais no BASIC
-            if is_basic(current_user):
-                service.locations = Location.query.filter(
-                    Location.admin_id == current_user.id,
-                    Location.id.in_(location_ids)
-                ).all()
-            db.session.commit()
-            flash('Serviço atualizado com sucesso!', 'success')
-            return redirect(url_for('main.services_list'))
-        flash('Preencha todos os campos.', 'danger')
-    selected_ids = [str(p.id) for p in service.professionals]
-    return render_template('edit_service.html', service=service, professionals=professionals, selected_ids=selected_ids, locations=locations, selected_location_ids=selected_location_ids)
-
-@main.route('/delete_service/<int:id>')
-@login_required
-def delete_service(id):
-    return f"Delete Service {id} - Em construção"
-
-@main.route('/edit_professional/<int:professional_id>', methods=['GET', 'POST'])
-@login_required
-def edit_professional(professional_id):
-    if is_basic(current_user):
-        flash('Seu plano (Basic) não permite editar profissionais.', 'warning')
-        return redirect(url_for('main.professionals_list'))
-    professional = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first_or_404()
-    schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id).all()
-    dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
-    # Prepara dados para o template
-    horarios = {sch.weekday: sch for sch in schedules}
-    if request.method == 'POST':
-        name = request.form.get('name')
-        if name:
-            professional.name = name
-            # Remove horários antigos
-            ProfessionalSchedule.query.filter_by(professional_id=professional.id).delete()
-            db.session.commit()
-            # Adiciona novos horários
-            workdays = request.form.getlist('workdays')
-            for i in range(7):
-                if str(i) in workdays:
-                    start = request.form.get(f'start_{i}')
-                    end = request.form.get(f'end_{i}')
-                    break_start = request.form.get(f'break_start_{i}') or None
-                    break_end = request.form.get(f'break_end_{i}') or None
-                    if start and end:
-                        schedule = ProfessionalSchedule(
-                            professional_id=professional.id,
-                            weekday=i,
-                            start_time=start,
-                            end_time=end,
-                            break_start=break_start,
-                            break_end=break_end
-                        )
-                        db.session.add(schedule)
-            db.session.commit()
-            flash('Profissional atualizado com sucesso!', 'success')
-            return redirect(url_for('main.professionals_list'))
-        flash('Nome é obrigatório.', 'danger')
-    return render_template('edit_professional.html', professional=professional, dias=dias, horarios=horarios)
-
-@main.route('/delete_professional/<int:professional_id>', methods=['POST'])
-@login_required
-def delete_professional(professional_id):
-    if is_basic(current_user):
-        flash('Seu plano (Basic) não permite remover profissionais.', 'warning')
-        return redirect(url_for('main.professionals_list'))
-    professional = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first_or_404()
-    db.session.delete(professional)
-    db.session.commit()
-    flash('Profissional excluído com sucesso!', 'success')
-    return redirect(url_for('main.professionals_list'))
-
-@main.route('/confirm_delete_professional/<int:professional_id>', methods=['GET', 'POST'])
-@login_required
-def confirm_delete_professional(professional_id):
-    professional = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first_or_404()
-    if request.method == 'POST':
-        # Exclui agendamentos e horários
-        Appointment.query.filter_by(professional_id=professional.id).delete()
-        ProfessionalSchedule.query.filter_by(professional_id=professional.id).delete()
-        db.session.delete(professional)
-        db.session.commit()
-        flash('Profissional e todos os agendamentos excluídos!', 'success')
-        return redirect(url_for('main.professionals_list'))
-    return render_template('confirm_delete_professional.html', professional=professional)
-
-@main.route('/my_appointments')
-@login_required
-def my_appointments():
-    appointments = Appointment.query.filter_by(admin_id=current_user.id).all()
-    return render_template('my_appointments.html', appointments=appointments)
-
-@main.route('/<salao_slug>', methods=['GET', 'POST'])
-def salao_home(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    services = Service.query.filter_by(admin_id=admin.id).all()
-    professionals = Professional.query.filter_by(admin_id=admin.id).all()
-    return render_template('salao_home.html', admin=admin, services=services, professionals=professionals)
-
-@main.route('/<salao_slug>/cliente', methods=['GET', 'POST'])
-def customer_login(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    if request.method == 'POST':
-        phone = request.form.get('phone')
-        name = request.form.get('name')
-        birthdate = request.form.get('birthdate')
-        customer = Customer.query.filter_by(phone=phone).first()
-        if not customer:
-            customer = Customer(name=name, phone=phone, birthdate=birthdate)
-            db.session.add(customer)
-            db.session.commit()
-        if admin not in customer.admins:
-            customer.admins.append(admin)
-            db.session.commit()
-        session['customer_id'] = customer.id
-        session['admin_id'] = admin.id
-        # Redireciona para a tela de opções
-        return redirect(url_for('main.cliente_opcoes', salao_slug=salao_slug))
-    return render_template('cliente_bemvindo.html', salao_slug=salao_slug)
-
-@main.route('/<salao_slug>/opcoes')
-def cliente_opcoes(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    # Apenas no plano BASIC oferecemos locais
-    has_locations = False
-    if is_basic(admin):
-        has_locations = Location.query.filter_by(admin_id=admin.id).count() > 0
-    return render_template('cliente_opcoes.html', salao_slug=salao_slug, has_locations=has_locations)
-
-@main.route('/<salao_slug>/servico', methods=['GET', 'POST'])
-def salao_servico(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    # Em BASIC: se houver local selecionado, filtrar serviços por local
-    services_q = Service.query.filter_by(admin_id=admin.id)
-    back_url = url_for('main.salao_home', salao_slug=salao_slug)
-    if is_basic(admin):
-        sel_loc = session.get('location_id')
-        # Se houver Locais cadastrados, e um local já estiver selecionado, filtra
-        if sel_loc:
-            services_q = services_q.join(Service.locations).filter(Location.id == int(sel_loc))
-            back_url = url_for('main.salao_local', salao_slug=salao_slug)
-        else:
-            # Se existem locais cadastrados mas ainda não escolhido, volta para locais
-            if Location.query.filter_by(admin_id=admin.id).count() > 0:
-                return redirect(url_for('main.salao_local', salao_slug=salao_slug))
-    services = services_q.all()
-    if request.method == 'POST':
-        service_id = request.form.get('service_id')
-        session['service_id'] = service_id
-        if is_pro(admin):
-            return redirect(url_for('main.salao_profissional', salao_slug=salao_slug))
-        # BASIC: define profissional padrão e segue para período
-        prof = ensure_default_professional(admin)
-        session['professional_id'] = str(prof.id)
-        return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
-    return render_template('cliente_servico.html', services=services, salao_slug=salao_slug, back_url=back_url)
-
-
-@main.route('/<salao_slug>/local', methods=['GET','POST'])
-def salao_local(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    if not is_basic(admin):
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    # Lista todos os Locais do salão; escolha do serviço vem depois
-    locations = Location.query.filter_by(admin_id=admin.id).all()
-    if not locations:
-        # Sem locais cadastrados, segue para serviço
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    if request.method == 'POST':
-        loc_id = request.form.get('location_id')
-        session['location_id'] = int(loc_id) if loc_id else None
-        # Após escolher local, ir para serviços
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    return render_template('cliente_local.html', locations=locations, salao_slug=salao_slug, back_url=url_for('main.cliente_opcoes', salao_slug=salao_slug))
-
-@main.route('/<salao_slug>/profissional', methods=['GET', 'POST'])
-def salao_profissional(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    # No BASIC, não exibir etapa de profissional
-    if is_basic(admin):
-        return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
-    service_id = session.get('service_id')
-    if not service_id:
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    service = Service.query.get_or_404(service_id)
-    professionals = service.professionals
-    if request.method == 'POST':
-        professional_id = request.form.get('professional_id')
-        session['professional_id'] = professional_id
-        return redirect(url_for('main.salao_periodo', salao_slug=salao_slug))
-    return render_template('cliente_profissional.html', professionals=professionals, salao_slug=salao_slug, back_url=url_for('main.salao_servico', salao_slug=salao_slug))
-
-@main.route('/<salao_slug>/periodo', methods=['GET', 'POST'])
-def salao_periodo(salao_slug):
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    if request.method == 'POST':
-        period = request.form.get('period')
-        session['period'] = period
-        return redirect(url_for('main.salao_data', salao_slug=salao_slug))
-    back_url = url_for('main.salao_profissional', salao_slug=salao_slug) if is_pro(admin) else url_for('main.salao_servico', salao_slug=salao_slug)
-    return render_template('cliente_periodo.html', salao_slug=salao_slug, back_url=back_url)
-
-@main.route('/<salao_slug>/data', methods=['GET', 'POST'])
-def salao_data(salao_slug):
-    service_id = session.get('service_id')
-    professional_id = session.get('professional_id')
-    period = session.get('period')
-    if not (service_id and professional_id and period):
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    service = Service.query.get_or_404(service_id)
-    # No BASIC, se houver local selecionado, verificar se o serviço é oferecido nele
-    admin = User.query.get(service.admin_id)
-    if is_basic(admin):
-        loc_id = session.get('location_id')
-        if loc_id and not any(l.id == int(loc_id) for l in service.locations):
-            flash('Este serviço não é oferecido no local selecionado. Escolha outro local ou serviço.', 'warning')
-            return redirect(url_for('main.salao_local', salao_slug=salao_slug))
-    professional = Professional.query.get_or_404(professional_id)
-    today = datetime.today().date()
-    days = []
-    for i in range(7):
-        day = today + timedelta(days=i)
-        if tem_slot_disponivel(day, period, service, professional):
-            days.append(day)
-    if request.method == 'POST':
-        date = request.form.get('date')
-        session['date'] = date
-        return redirect(url_for('main.escolher_horario', salao_slug=salao_slug))
-    return render_template(
-        'cliente_data.html',
-        days=days,
-        salao_slug=salao_slug,
-        back_url=url_for('main.salao_periodo', salao_slug=salao_slug)
-    )
-
-def tem_slot_disponivel(day, period, service, professional):
-    # Busca os horários de trabalho do profissional para o dia da semana
-    weekday = day.weekday()
-    schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id, weekday=weekday).all()
-    duration = service.duration
-
-    # Regras de plano: em BASIC podemos usar apenas janela do Local
-    admin = User.query.get(professional.admin_id)
-    # Se for BASIC e houver local selecionado, validar se o serviço é oferecido nesse local
-    if is_basic(admin):
-        sel_loc = session.get('location_id')
-        if sel_loc and not any(l.id == int(sel_loc) for l in service.locations):
-            return False
-    location_id = session.get('location_id') if is_basic(admin) else None
-    loc_schedules = []
-    if location_id:
-        loc_schedules = LocationSchedule.query.filter_by(location_id=location_id, weekday=weekday).all()
-
-    # Se não trabalha nesse dia, em BASIC tentamos usar janela do local
-    if not schedules:
-        if is_basic(admin) and loc_schedules:
-            class S: pass
-            schedules = []
-            for lsch in loc_schedules:
-                s = S()
-                s.start_time = lsch.start_time
-                s.end_time = lsch.end_time
-                s.break_start = lsch.break_start
-                s.break_end = lsch.break_end
-                schedules.append(s)
-        else:
-            return False
-
-    agendamentos = Appointment.query.filter(
-        Appointment.professional_id == professional.id,
-        func.date(Appointment.appointment_time) == day,
-        Appointment.ativo == True
-    ).all()
-    ocupados = []
-    for ag in agendamentos:
-        ag_start = ag.appointment_time
-        ag_end = ag_start + timedelta(minutes=Service.query.get(ag.service_id).duration)
-        ocupados.append((ag_start, ag_end))
-
-    # loc_schedules já calculados acima conforme plano
-
-    for sch in schedules:
-        slot_time = datetime.combine(day, sch.start_time)
-        end_time = datetime.combine(day, sch.end_time)
-        while slot_time + timedelta(minutes=duration) <= end_time:
-            # Pula intervalo de pausa, se houver
-            if sch.break_start and sch.break_end:
-                break_start = datetime.combine(day, sch.break_start)
-                break_end = datetime.combine(day, sch.break_end)
-                if slot_time >= break_start and slot_time < break_end:
-                    slot_time = break_end
-                    continue
-            # Check location window if present
-            if loc_schedules:
-                inside_any = False
-                for lsch in loc_schedules:
-                    l_start = datetime.combine(day, lsch.start_time)
-                    l_end = datetime.combine(day, lsch.end_time)
-                    if lsch.break_start and lsch.break_end:
-                        lb_start = datetime.combine(day, lsch.break_start)
-                        lb_end = datetime.combine(day, lsch.break_end)
-                    else:
-                        lb_start = lb_end = None
-                    # slot must be within location open hours and not in location break
-                    if slot_time >= l_start and (slot_time + timedelta(minutes=duration)) <= l_end:
-                        if lb_start and lb_end and slot_time >= lb_start and slot_time < lb_end:
-                            pass
-                        else:
-                            inside_any = True
-                            break
-                if not inside_any:
-                    slot_time += timedelta(minutes=15)
-                    continue
-            livre = True
-            slot_end = slot_time + timedelta(minutes=duration)
-            for ag_start, ag_end in ocupados:
-                if (slot_time < ag_end and slot_end > ag_start):
-                    livre = False
-                    break
-            if livre:
-                return True
-            slot_time += timedelta(minutes=15)
-    return False
-
-@main.route('/<salao_slug>/horario', methods=['GET', 'POST'])
-def escolher_horario(salao_slug):
-    service_id = session.get('service_id')
-    professional_id = session.get('professional_id')
-    date = session.get('date')
-    period = session.get('period')
-    customer_id = session.get('customer_id')
-    if not (service_id and professional_id and date and period and customer_id):
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug))
-    service = Service.query.get_or_404(service_id)
-    professional = Professional.query.get_or_404(professional_id)
-    duration = service.duration
-    date_obj = datetime.strptime(str(date), "%Y-%m-%d")
-    weekday = date_obj.weekday()
-    slots = []
-
-    # Busca os horários de trabalho do profissional para o dia da semana
-    schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id, weekday=weekday).all()
-
-    agendamentos = Appointment.query.filter(
-        Appointment.professional_id == professional.id,
-        func.date(Appointment.appointment_time) == date,
-        Appointment.ativo == True
-    ).all()
-    ocupados = []
-    for ag in agendamentos:
-        ag_start = ag.appointment_time
-        ag_end = ag_start + timedelta(minutes=Service.query.get(ag.service_id).duration)
-        ocupados.append((ag_start, ag_end))
-
-    # Regras de plano: em BASIC usamos local; nos demais ignoramos local
-    admin = User.query.get(professional.admin_id)
-    # Se for BASIC, garantir que o serviço é disponível no local escolhido
-    if is_basic(admin):
-        sel_loc = session.get('location_id')
-        if sel_loc and not any(l.id == int(sel_loc) for l in service.locations):
-            flash('Este serviço não é oferecido no local selecionado.', 'warning')
-            return redirect(url_for('main.salao_local', salao_slug=salao_slug))
-    location_id = session.get('location_id') if is_basic(admin) else None
-    loc_schedules = []
-    if location_id:
-        loc_schedules = LocationSchedule.query.filter_by(location_id=location_id, weekday=weekday).all()
-
-    if not schedules:
-        if is_basic(admin) and loc_schedules:
-            class S: pass
-            schedules = []
-            for lsch in loc_schedules:
-                s = S()
-                s.start_time = lsch.start_time
-                s.end_time = lsch.end_time
-                s.break_start = lsch.break_start
-                s.break_end = lsch.break_end
-                schedules.append(s)
-        else:
-            schedules = []
-
-    for sch in schedules:
-        slot_time = date_obj.replace(hour=sch.start_time.hour, minute=sch.start_time.minute)
-        end_time = date_obj.replace(hour=sch.end_time.hour, minute=sch.end_time.minute)
-        while slot_time + timedelta(minutes=duration) <= end_time:
-            # Pula intervalo de pausa, se houver
-            if sch.break_start and sch.break_end:
-                break_start = date_obj.replace(hour=sch.break_start.hour, minute=sch.break_start.minute)
-                break_end = date_obj.replace(hour=sch.break_end.hour, minute=sch.break_end.minute)
-                if slot_time >= break_start and slot_time < break_end:
-                    slot_time = break_end
-                    continue
-            # Location schedule window
-            if loc_schedules:
-                inside_any = False
-                for lsch in loc_schedules:
-                    l_start = date_obj.replace(hour=lsch.start_time.hour, minute=lsch.start_time.minute)
-                    l_end = date_obj.replace(hour=lsch.end_time.hour, minute=lsch.end_time.minute)
-                    if lsch.break_start and lsch.break_end:
-                        lb_start = date_obj.replace(hour=lsch.break_start.hour, minute=lsch.break_start.minute)
-                        lb_end = date_obj.replace(hour=lsch.break_end.hour, minute=lsch.break_end.minute)
-                    else:
-                        lb_start = lb_end = None
-                    if slot_time >= l_start and (slot_time + timedelta(minutes=duration)) <= l_end:
-                        if lb_start and lb_end and slot_time >= lb_start and slot_time < lb_end:
-                            pass
-                        else:
-                            inside_any = True
-                            break
-                if not inside_any:
-                    slot_time += timedelta(minutes=15)
-                    continue
-            livre = True
-            slot_end = slot_time + timedelta(minutes=duration)
-            for ag_start, ag_end in ocupados:
-                if (slot_time < ag_end and slot_end > ag_start):
-                    livre = False
-                    break
-            if livre:
-                slots.append(slot_time.strftime("%H:%M"))
-            slot_time += timedelta(minutes=15)
-    if request.method == 'POST':
-        session['agendamento'] = {
-            'service_id': session.get('service_id'),
-            'professional_id': session.get('professional_id'),
-            'period': session.get('period'),
-            'date': session.get('date'),
-            'horario': request.form['horario']
-        }
-        return redirect(url_for('main.confirmar_agendamento', salao_slug=salao_slug))
-    return render_template(
-        'cliente_horario.html',
-        slots=slots,
-        salao_slug=salao_slug,
-        back_url=url_for('main.salao_data', salao_slug=salao_slug)
-    )
-
-@main.route('/<salao_slug>/confirmar', methods=['GET', 'POST'])
-def confirmar_agendamento(salao_slug):
-    agendamento = session.get('agendamento')
-    if not agendamento:
-        return redirect(url_for('main.agendamento_sucesso', salao_slug=salao_slug))
-
-    # Buscar objetos para exibir na tela de confirmação
-    service = Service.query.get(agendamento['service_id'])
-    professional = Professional.query.get(agendamento['professional_id'])
-    data = agendamento['date']
-    horario = agendamento['horario']
-
-    if request.method == 'POST':
-        # Aqui salva o agendamento no banco
-        appointment = Appointment(
-            service_id=service.id,
-            professional_id=professional.id,
-            appointment_time=datetime.strptime(f"{data} {horario}", "%Y-%m-%d %H:%M"),
-            # Adapte para incluir o customer_id conforme seu fluxo de login
-            customer_id=session.get('customer_id'),
-            location_id=session.get('location_id')
-        )
-        db.session.add(appointment)
-        db.session.commit()
-        session.pop('agendamento', None)
-        return redirect(url_for('main.agendamento_sucesso', salao_slug=salao_slug))
-
-    return render_template(
-        'confirmar_agendamento.html',
-        service=service,
-        professional=professional,
-        data=data,
-        horario=horario
-    )
-
-@main.route('/<salao_slug>/sucesso')
-def agendamento_sucesso(salao_slug):
-    return render_template('agendamento_sucesso.html', salao_slug=salao_slug)
-
-@main.route('/<salao_slug>/meus_agendamentos', methods=['GET', 'POST'])
-def meus_agendamentos_cliente(salao_slug):
-    customer_id = session.get('customer_id')
-    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    if not customer_id:
-        return redirect(url_for('main.customer_login', salao_slug=salao_slug))
-    hoje = datetime.today()
-    agendamentos = Appointment.query.join(Professional).filter(
-        Appointment.customer_id == customer_id,
-        Professional.admin_id == admin.id,
-        Appointment.appointment_time >= hoje,
-        Appointment.ativo == True  # Supondo que você tenha um campo "ativo" para soft delete
-    ).order_by(Appointment.appointment_time.asc()).all()
-    return render_template('meus_agendamentos_cliente.html', agendamentos=agendamentos, salao_slug=salao_slug)
-
-@main.route('/<salao_slug>/cancelar_agendamento/<int:agendamento_id>', methods=['POST'])
-def cancelar_agendamento_cliente(salao_slug, agendamento_id):
-    customer_id = session.get('customer_id')
-    agendamento = Appointment.query.get_or_404(agendamento_id)
-    if agendamento.customer_id != customer_id:
-        abort(403)
-    agendamento.ativo = False  # Supondo que exista esse campo
-    db.session.commit()
-    flash('Agendamento cancelado com sucesso!', 'success')
-    return redirect(url_for('main.meus_agendamentos_cliente', salao_slug=salao_slug))
-
-@main.route('/dashboard/add_event', methods=['POST'])
-@login_required
-def dashboard_add_event():
-    if current_user.role != 'admin':
-        abort(403)
-    profissional_id = request.form.get('profissional_id', type=int)
-    descricao = request.form.get('descricao')
-    data = request.form.get('data')
-    hora = request.form.get('hora')
-    duracao = request.form.get('duracao', type=int)
-    tipo = request.form.get('tipo')  # 'agendamento' ou 'bloqueio'
-
-    if not (profissional_id and descricao and data and hora and duracao):
-        flash('Preencha todos os campos!', 'danger')
-        return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-
-    profissional = Professional.query.filter_by(id=profissional_id, admin_id=current_user.id).first_or_404()
-    inicio = datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
-
-    if tipo == 'bloqueio':
-        if not _is_slot_available(profissional, inicio, duracao, current_user, location_id=None):
-            flash('Horário indisponível para bloqueio.', 'danger')
-            return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-        bloqueio = Appointment(
-            professional_id=profissional.id,
-            service_id=None,
-            customer_id=None,
-            appointment_time=inicio,
-            ativo=True
-        )
-        bloqueio.descricao = descricao
-        bloqueio.duracao = duracao
-        db.session.add(bloqueio)
-        db.session.commit()
-        flash('Bloqueio adicionado!', 'success')
-    else:
-        # Agendamento manual (pode ser adaptado para buscar cliente/serviço)
-        flash('Agendamento manual não implementado neste MVP.', 'info')
-
-    return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-
-
-@main.route('/dashboard/create_appointment', methods=['POST'])
-@login_required
-def dashboard_create_appointment():
-    if current_user.role != 'admin':
-        abort(403)
-    profissional_id = request.form.get('profissional_id', type=int)
-    service_id = request.form.get('service_id', type=int)
-    customer_id = request.form.get('customer_id', type=int)
-    customer_name = (request.form.get('customer_name') or '').strip()
-    customer_phone = (request.form.get('customer_phone') or '').strip()
-    data = request.form.get('data')
-    hora = request.form.get('hora')
-    # No BASIC, exigir location_id
-    location_id = request.form.get('location_id', type=int)
-    require_location = is_basic(current_user)
-    if not (profissional_id and service_id and customer_id and data and hora and ((not require_location) or location_id)):
-        flash('Preencha todos os campos para o agendamento.', 'danger')
-        return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-    profissional = Professional.query.filter_by(id=profissional_id, admin_id=current_user.id).first_or_404()
-    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
-    customer = Customer.query.get_or_404(customer_id)
-    inicio = datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
-    # No BASIC, validar se o serviço é oferecido no local escolhido
-    if require_location and location_id:
-        service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
-        if not any(l.id == int(location_id) for l in service.locations):
-            flash('Este serviço não é oferecido no local selecionado.', 'danger')
-            return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-
-    # Cria cliente rápido se não selecionado da lista
-    if not customer_id and customer_name:
-        cust = Customer(name=customer_name, phone=customer_phone or None)
-        db.session.add(cust)
-        db.session.commit()
-        if current_user not in cust.admins:
-            cust.admins.append(current_user)
-            db.session.commit()
-        customer = cust
-    else:
-        customer = Customer.query.get_or_404(customer_id)
-
-    # Valida disponibilidade do slot
-    if not _is_slot_available(profissional, inicio, service.duration, current_user, location_id=(location_id if require_location else None)):
-        flash('Horário indisponível para este serviço.', 'danger')
-        return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-
-    appointment = Appointment(
-        professional_id=profissional.id,
-        service_id=service.id,
-        customer_id=customer.id,
-        appointment_time=inicio,
-        ativo=True,
-        location_id=location_id if require_location else None
-    )
-    db.session.add(appointment)
-    db.session.commit()
-    flash('Agendamento criado com sucesso!', 'success')
-    return redirect(url_for('main.dashboard', data=data, profissional_id=profissional_id))
-
-
-@main.route('/dashboard/available_times', methods=['GET'])
-@login_required
-def dashboard_available_times():
-    if current_user.role != 'admin':
-        abort(403)
-    profissional_id = request.args.get('profissional_id', type=int)
-    service_id = request.args.get('service_id', type=int)
-    date_str = request.args.get('date')
-    if not (profissional_id and service_id and date_str):
-        return jsonify({'ok': False, 'error': 'missing_parameters'}), 400
-    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first()
-    profissional = Professional.query.filter_by(id=profissional_id, admin_id=current_user.id).first()
-    if not (service and profissional):
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    weekday = date_obj.weekday()
-    duration = service.duration
-    schedules = ProfessionalSchedule.query.filter_by(professional_id=profissional.id, weekday=weekday).all()
-    agendamentos = Appointment.query.filter(
-        Appointment.professional_id == profissional.id,
-        func.date(Appointment.appointment_time) == date_obj.date(),
-        Appointment.ativo == True
-    ).all()
-    ocupados = []
-    for ag in agendamentos:
-        if ag.service_id:
-            dur = Service.query.get(ag.service_id).duration
-        else:
-            dur = ag.duracao or 0
-        ag_start = ag.appointment_time
-        ag_end = ag_start + timedelta(minutes=dur)
-        ocupados.append((ag_start, ag_end))
-
-    # Plano BASIC: considerar janela de Local se informada
-    loc_schedules = []
-    if is_basic(current_user):
-        loc_id = request.args.get('location_id', type=int)
-        if loc_id:
-            # validar que o serviço é oferecido no local
-            if not any(l.id == int(loc_id) for l in service.locations):
-                return jsonify({'ok': True, 'slots': []})
-            loc_schedules = LocationSchedule.query.filter_by(location_id=loc_id, weekday=weekday).all()
-
-    if not schedules and loc_schedules:
-        class S: pass
-        schedules = []
-        for lsch in loc_schedules:
-            s = S()
-            s.start_time = lsch.start_time
-            s.end_time = lsch.end_time
-            s.break_start = lsch.break_start
-            s.break_end = lsch.break_end
-            schedules.append(s)
-
-    slots = []
-    for sch in schedules:
-        slot_time = date_obj.replace(hour=sch.start_time.hour, minute=sch.start_time.minute)
-        end_time = date_obj.replace(hour=sch.end_time.hour, minute=sch.end_time.minute)
-        while slot_time + timedelta(minutes=duration) <= end_time:
-            # Pula intervalo de pausa
-            if sch.break_start and sch.break_end:
-                break_start = date_obj.replace(hour=sch.break_start.hour, minute=sch.break_start.minute)
-                break_end = date_obj.replace(hour=sch.break_end.hour, minute=sch.break_end.minute)
-                if slot_time >= break_start and slot_time < break_end:
-                    slot_time = break_end
-                    continue
-            # Se há janela de local, garantir que o slot caia dentro dela
-            if loc_schedules:
-                inside_any = False
-                for lsch in loc_schedules:
-                    l_start = date_obj.replace(hour=lsch.start_time.hour, minute=lsch.start_time.minute)
-                    l_end = date_obj.replace(hour=lsch.end_time.hour, minute=lsch.end_time.minute)
-                    if lsch.break_start and lsch.break_end:
-                        lb_start = date_obj.replace(hour=lsch.break_start.hour, minute=lsch.break_start.minute)
-                        lb_end = date_obj.replace(hour=lsch.break_end.hour, minute=lsch.break_end.minute)
-                    else:
-                        lb_start = lb_end = None
-                    if slot_time >= l_start and (slot_time + timedelta(minutes=duration)) <= l_end:
-                        if lb_start and lb_end and slot_time >= lb_start and slot_time < lb_end:
-                            pass
-                        else:
-                            inside_any = True
-                            break
-                if not inside_any:
-                    slot_time += timedelta(minutes=15)
-                    continue
-            livre = True
-            slot_end = slot_time + timedelta(minutes=duration)
-            for ag_start, ag_end in ocupados:
-                if (slot_time < ag_end and slot_end > ag_start):
-                    livre = False
-                    break
-            if livre:
-                slots.append(slot_time.strftime("%H:%M"))
-            slot_time += timedelta(minutes=15)
-    return jsonify({'ok': True, 'slots': slots})
-
-@main.route('/api/customers/search')
-@login_required
-def api_search_customers():
-    if current_user.role != 'admin':
-        abort(403)
-    q = (request.args.get('q') or '').strip()
-    if not q:
-        return jsonify({'ok': True, 'results': []})
-    # Somente clientes que já tiveram agenda neste salão
-    sub = db.session.query(Appointment.customer_id).join(Professional).filter(Professional.admin_id == current_user.id).distinct().subquery()
-    customers = Customer.query.filter(Customer.id.in_(sub), Customer.name.ilike(f"%{q}%")).order_by(Customer.name.asc()).limit(10).all()
-    return jsonify({'ok': True, 'results': [{'id': c.id, 'name': c.name, 'phone': c.phone} for c in customers]})
-
-@main.route('/dashboard/cancelar/<int:agendamento_id>', methods=['POST'])
-@login_required
-def dashboard_cancelar_agendamento(agendamento_id):
-    if current_user.role != 'admin':
-        abort(403)
-    agendamento = Appointment.query.get_or_404(agendamento_id)
-    if agendamento.professional.admin_id != current_user.id:
-        abort(403)
-    agendamento.ativo = False
-    db.session.commit()
-    flash('Agendamento cancelado!', 'success')
-    return redirect(request.referrer or url_for('main.dashboard'))
-
-@main.route('/professionals')
+@main.route('/professionals', endpoint='professionals_list', methods=['GET'])
 @login_required
 def professionals_list():
     if current_user.role != 'admin':
         abort(403)
-    if is_basic(current_user):
-        professionals = [ensure_default_professional(current_user)]
-    else:
-        professionals = Professional.query.filter_by(admin_id=current_user.id).all()
-    return render_template('professionals_list.html', back_url=url_for('main.dashboard'), professionals=professionals)
+    pros = Professional.query.filter_by(admin_id=current_user.id).all()
+    return render_template('professionals_list.html', professionals=pros, back_url=url_for('main.dashboard'))
 
-@main.route('/services')
+@main.route('/services', endpoint='services_list', methods=['GET'])
 @login_required
 def services_list():
     if current_user.role != 'admin':
         abort(403)
-    services = Service.query.filter_by(admin_id=current_user.id).all()
-    professionals = Professional.query.filter_by(admin_id=current_user.id).all()
-    return render_template('services_list.html', services=services, professionals=professionals)
+    services = Service.query.options(joinedload(Service.professionals), joinedload(Service.locations)).filter_by(admin_id=current_user.id).all()
+    return render_template('services_list.html', services=services)
 
-@main.route('/confirm_delete_service/<int:service_id>', methods=['GET', 'POST'])
-@login_required
-def confirm_delete_service(service_id):
-    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
-    if request.method == 'POST':
-        # Exclui agendamentos desse serviço
-        Appointment.query.filter_by(service_id=service.id).delete()
-        db.session.delete(service)
-        db.session.commit()
-        flash('Serviço e todos os agendamentos excluídos!', 'success')
-        return redirect(url_for('main.services_list'))
-    return render_template('confirm_delete_service.html', service=service)
-
-
-# ==========================
-# Locations management
-# ==========================
-
-@main.route('/locations')
+@main.route('/locations', endpoint='locations_list', methods=['GET'])
 @login_required
 def locations_list():
     if current_user.role != 'admin':
         abort(403)
-    if not is_basic(current_user):
-        flash('Seu plano não permite gerenciar Locais.', 'warning')
-        return redirect(url_for('main.dashboard'))
-    locations = Location.query.filter_by(admin_id=current_user.id).all()
-    return render_template('locations_list.html', locations=locations)
+    locs = Location.query.options(joinedload(Location.schedules)).filter_by(admin_id=current_user.id).all()
+    return render_template('locations_list.html', locations=locs)
 
+@main.route('/professionals/add', endpoint='add_professional', methods=['GET','POST'])
+@login_required
+def add_professional():
+    if current_user.role != 'admin':
+        abort(403)
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Nome do profissional é obrigatório.', 'danger')
+            return redirect(url_for('main.add_professional'))
+        prof = Professional(name=name, admin_id=current_user.id)
+        db.session.add(prof)
+        db.session.commit()
+        flash('Profissional adicionado.', 'success')
+        return redirect(url_for('main.professionals_list'))
+    return render_template('add_professional.html', back_url=url_for('main.professionals_list'))
 
-@main.route('/add_location', methods=['GET','POST'])
+@main.route('/services/add', endpoint='add_service', methods=['GET','POST'])
+@login_required
+def add_service():
+    if current_user.role != 'admin':
+        abort(403)
+    pros = Professional.query.filter_by(admin_id=current_user.id).all()
+    locs = Location.query.filter_by(admin_id=current_user.id).all()
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        duration = request.form.get('duration', type=int)
+        price = request.form.get('price', type=float)
+        if not (name and duration and price is not None):
+            flash('Preencha nome, duração e preço.', 'danger')
+            return render_template('add_service.html', professionals=pros, locations=locs)
+        s = Service(name=name, duration=duration, price=price, admin_id=current_user.id)
+        db.session.add(s)
+        db.session.flush()
+        # associações
+        pro_ids = request.form.getlist('professional_ids')
+        if pro_ids:
+            sel_pros = Professional.query.filter(Professional.id.in_(pro_ids), Professional.admin_id==current_user.id).all()
+            for p in sel_pros:
+                s.professionals.append(p)
+        loc_ids = request.form.getlist('location_ids')
+        if loc_ids:
+            sel_locs = Location.query.filter(Location.id.in_(loc_ids), Location.admin_id==current_user.id).all()
+            for l in sel_locs:
+                s.locations.append(l)
+        db.session.commit()
+        flash('Serviço criado.', 'success')
+        return redirect(url_for('main.services_list'))
+    return render_template('add_service.html', professionals=pros, locations=locs)
+
+@main.route('/locations/add', endpoint='add_location', methods=['GET','POST'])
 @login_required
 def add_location():
     if current_user.role != 'admin':
         abort(403)
-    if not is_basic(current_user):
-        flash('Seu plano não permite adicionar Locais.', 'warning')
-        return redirect(url_for('main.dashboard'))
     if request.method == 'POST':
-        name = request.form.get('name')
-        if name:
-            loc = Location(name=name, admin_id=current_user.id)
-            db.session.add(loc)
-            db.session.commit()
-            workdays = request.form.getlist('workdays')
-            for i in range(7):
-                if str(i) in workdays:
-                    start = request.form.get(f'start_{i}')
-                    end = request.form.get(f'end_{i}')
-                    break_start = request.form.get(f'break_start_{i}') or None
-                    break_end = request.form.get(f'break_end_{i}') or None
-                    if start and end:
-                        sch = LocationSchedule(
-                            location_id=loc.id,
-                            weekday=i,
-                            start_time=start,
-                            end_time=end,
-                            break_start=break_start,
-                            break_end=break_end
-                        )
-                        db.session.add(sch)
-            db.session.commit()
-            flash('Local adicionado!', 'success')
-            return redirect(url_for('main.locations_list'))
-        flash('Nome é obrigatório.', 'danger')
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Nome do local é obrigatório.', 'danger')
+            return render_template('add_location.html')
+        loc = Location(name=name, admin_id=current_user.id)
+        db.session.add(loc)
+        db.session.flush()
+        # Horários
+        workdays = request.form.getlist('workdays')
+        for wd in workdays:
+            i = int(wd)
+            st = request.form.get(f'start_{i}')
+            en = request.form.get(f'end_{i}')
+            bs = request.form.get(f'break_start_{i}')
+            be = request.form.get(f'break_end_{i}')
+            if st and en:
+                ls = LocationSchedule(location_id=loc.id,
+                                      weekday=i,
+                                      start_time=datetime.strptime(st, '%H:%M').time(),
+                                      end_time=datetime.strptime(en, '%H:%M').time(),
+                                      break_start=datetime.strptime(bs, '%H:%M').time() if bs else None,
+                                      break_end=datetime.strptime(be, '%H:%M').time() if be else None)
+                db.session.add(ls)
+        db.session.commit()
+        flash('Local criado.', 'success')
+        return redirect(url_for('main.locations_list'))
     return render_template('add_location.html')
 
+PLAN_PRICES = {
+    'basic': Decimal('19.90'),
+    'pro': Decimal('29.90'),
+    'advanced': Decimal('49.90'),
+}
 
-@main.route('/edit_location/<int:location_id>', methods=['GET','POST'])
+def _mp_access_token() -> str:
+    token = os.getenv('MERCADO_PAGO_ACCESS_TOKEN', '').strip()
+    if not token:
+        raise RuntimeError('MERCADO_PAGO_ACCESS_TOKEN não configurado')
+    return token
+
+def _mp_payer_email(user) -> str:
+    token = os.getenv('MERCADO_PAGO_ACCESS_TOKEN', '').strip()
+    test_payer = os.getenv('MERCADO_PAGO_TEST_PAYER', '').strip()
+    # Se estamos em sandbox (token de teste) e foi informado um comprador de teste, usar ele
+    if token.startswith('TEST-') and test_payer:
+        return test_payer
+    return user.email
+
+def _mp_create_preapproval(user, plan_key: str, amount: Decimal):
+    import requests
+    payload = {
+        "reason": f"Assinatura Plano {plan_key.capitalize()}",
+        "auto_recurring": {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": float(amount),
+            "currency_id": "BRL"
+        },
+        # prefixo do blueprint 'main'
+        "back_url": url_for('main.billing_success', _external=True),
+        "payer_email": _mp_payer_email(user),
+    }
+    headers = {
+        'Authorization': f'Bearer {_mp_access_token()}',
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': f"preapproval-{user.id}-{plan_key}-{datetime.utcnow().timestamp()}",
+    }
+    resp = requests.post('https://api.mercadopago.com/preapproval', json=payload, headers=headers, timeout=20)
+    if resp.status_code >= 300:
+        current_app.logger.error(f"Falha ao criar preapproval no MP: {resp.status_code} {resp.text}")
+        raise RuntimeError(f"MP preapproval error: {resp.status_code} {resp.text}")
+    return resp.json()
+
+def _mp_get_preapproval(preapproval_id: str) -> dict:
+    """Fetch preapproval by id from Mercado Pago."""
+    headers = {
+        'Authorization': f'Bearer {_mp_access_token()}',
+        'Content-Type': 'application/json',
+    }
+    url = f'https://api.mercadopago.com/preapproval/{preapproval_id}'
+    resp = requests.get(url, headers=headers, timeout=20)
+    if resp.status_code >= 300:
+        current_app.logger.error(f"Falha ao obter preapproval no MP: {resp.status_code} {resp.text}")
+        raise RuntimeError(f"MP get preapproval error: {resp.status_code} {resp.text}")
+    return resp.json()
+
+def _apply_preapproval_to_user(user: User, preapproval_data: dict) -> None:
+    """Update local user subscription fields based on Mercado Pago preapproval payload."""
+    status = (preapproval_data.get('status') or '').lower()
+    auto_rec = preapproval_data.get('auto_recurring') or {}
+    next_payment_date = auto_rec.get('next_payment_date')
+    # Map MP status to our status
+    if status in ('authorized', 'active', 'approved'):
+        user.subscription_status = 'active'
+    elif status in ('paused', 'cancelled', 'canceled'):
+        user.subscription_status = 'canceled'
+    elif status in ('expired',):
+        user.subscription_status = 'expired'
+    else:
+        user.subscription_status = status or 'pending'
+    # Persist provider/id just in case
+    user.subscription_provider = 'mercadopago'
+    if preapproval_data.get('id'):
+        user.subscription_id = preapproval_data['id']
+    # Parse next period end if available
+    if next_payment_date:
+        try:
+            # Handle ISO8601 with Z
+            iso = str(next_payment_date).replace('Z', '+00:00')
+            dt = datetime.fromisoformat(iso)
+            # store naive datetime in local time if needed
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            user.current_period_end_at = dt
+        except Exception:
+            current_app.logger.warning('Não foi possível interpretar next_payment_date: %s', next_payment_date)
+
+def _mp_cancel_preapproval(preapproval_id: str) -> dict:
+    """Cancel a preapproval (subscription) on Mercado Pago."""
+    headers = {
+        'Authorization': f'Bearer {_mp_access_token()}',
+        'Content-Type': 'application/json',
+    }
+    url = f'https://api.mercadopago.com/preapproval/{preapproval_id}'
+    payload = {"status": "cancelled"}
+    resp = requests.put(url, json=payload, headers=headers, timeout=20)
+    if resp.status_code >= 300:
+        current_app.logger.error(f"Falha ao cancelar preapproval no MP: {resp.status_code} {resp.text}")
+        raise RuntimeError(f"MP cancel preapproval error: {resp.status_code} {resp.text}")
+    return resp.json()
+
+# Trocar @app.post por decorator do blueprint:
+@main.route('/subscriptions/create', methods=['POST'])
 @login_required
-def edit_location(location_id):
-    if current_user.role != 'admin':
-        abort(403)
-    if not is_basic(current_user):
-        flash('Seu plano não permite editar Locais.', 'warning')
-        return redirect(url_for('main.dashboard'))
-    loc = Location.query.filter_by(id=location_id, admin_id=current_user.id).first_or_404()
-    dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
-    horarios = {sch.weekday: sch for sch in loc.schedules}
-    if request.method == 'POST':
-        name = request.form.get('name')
-        if name:
-            loc.name = name
-            LocationSchedule.query.filter_by(location_id=loc.id).delete()
-            db.session.commit()
-            workdays = request.form.getlist('workdays')
-            for i in range(7):
-                if str(i) in workdays:
-                    start = request.form.get(f'start_{i}')
-                    end = request.form.get(f'end_{i}')
-                    break_start = request.form.get(f'break_start_{i}') or None
-                    break_end = request.form.get(f'break_end_{i}') or None
-                    if start and end:
-                        sch = LocationSchedule(
-                            location_id=loc.id,
-                            weekday=i,
-                            start_time=start,
-                            end_time=end,
-                            break_start=break_start,
-                            break_end=break_end
-                        )
-                        db.session.add(sch)
-            db.session.commit()
-            flash('Local atualizado!', 'success')
-            return redirect(url_for('main.locations_list'))
-        flash('Nome é obrigatório.', 'danger')
-    return render_template('edit_location.html', location=loc, dias=dias, horarios=horarios)
+def subscriptions_create():
+    try:
+        plan_key = request.form.get('plan') or (current_user.plan if current_user.plan in PLAN_PRICES else 'basic')
+        if plan_key not in PLAN_PRICES:
+            flash('Plano inválido.', 'error')
+            return redirect(url_for('main.billing'))
+        amount = PLAN_PRICES[plan_key]
 
+        preapproval = _mp_create_preapproval(current_user, plan_key, amount)
+        init_point = preapproval.get('init_point') or preapproval.get('sandbox_init_point')
+        if not init_point:
+            flash('Falha ao iniciar assinatura no Mercado Pago. Tente novamente.', 'error')
+            return redirect(url_for('main.billing'))
 
-# ==========================
-# Admin profile
-# ==========================
-
-@main.route('/dashboard/profile', methods=['GET','POST'])
-@login_required
-def dashboard_profile():
-    if current_user.role != 'admin':
-        abort(403)
-    if request.method == 'POST':
-        company_name = request.form.get('company_name')
-        full_name = request.form.get('full_name')
-        phone = request.form.get('phone')
-        plan = (request.form.get('plan') or current_user.plan or 'free').lower()
-        current_user.company_name = company_name or current_user.company_name
-        current_user.full_name = full_name or current_user.full_name
-        current_user.phone = phone or current_user.phone
-        if plan in ('free','basic','pro'):
-            current_user.plan = plan
-            if is_basic(current_user):
-                ensure_default_professional(current_user)
-        # Photo
-        file = request.files.get('profile_photo')
-        if file and file.filename:
-            filename = secure_filename(file.filename)
-            name, ext = os.path.splitext(filename)
-            # salva como webp processado
-            safe_name = f"user_{current_user.id}.webp"
-            upload_dir = current_app.config.get('UPLOAD_FOLDER')
-            os.makedirs(upload_dir, exist_ok=True)
-            save_path = os.path.join(upload_dir, safe_name)
-            try:
-                from PIL import Image
-                img = Image.open(file.stream).convert('RGB')
-                w, h = img.size
-                side = min(w, h)
-                left = (w - side)//2
-                top = (h - side)//2
-                img = img.crop((left, top, left+side, top+side))
-                img = img.resize((512, 512), Image.LANCZOS)
-                img.save(save_path, 'WEBP', quality=90, method=6)
-            except Exception:
-                # fallback
-                file.save(save_path)
-            rel_path = os.path.relpath(save_path, os.path.join(current_app.root_path, 'static')).replace('\\','/')
-            current_user.profile_photo = rel_path
+        current_user.subscription_provider = 'mercadopago'
+        current_user.subscription_id = preapproval.get('id')
+        current_user.subscription_status = 'pending'
+        current_user.plan = plan_key
         db.session.commit()
-        flash('Perfil atualizado!', 'success')
-        return redirect(url_for('main.dashboard_profile'))
-    return render_template('dashboard_profile.html')
+
+        return redirect(init_point)
+    except RuntimeError as e:
+        msg = str(e)
+        if 'Cannot pay an amount lower than' in msg:
+            msg = 'O valor da assinatura deve be de pelo menos R$ 0,50. Já estamos usando os preços reais do plano.'
+        elif 'MERCADO_PAGO_ACCESS_TOKEN' in msg:
+            msg = 'Token do Mercado Pago não configurado no servidor.'
+        elif 'test' in msg.lower() and 'payer' in msg.lower():
+            msg = 'No sandbox, use um comprador de teste (MERCADO_PAGO_TEST_PAYER) diferente do vendedor.'
+        current_app.logger.error(f'Falha ao iniciar assinatura: {msg}')
+        flash(f'Falha ao iniciar assinatura no Mercado Pago. {msg}', 'danger')
+        return redirect(url_for('main.billing'))
+
+@main.route('/dbtest')
+def dbtest():
+    try:
+        count = db.session.query(User).count()
+        return f"Conexão OK! Usuários cadastrados: {count}"
+    except Exception as e:
+        return f"Erro na conexão: {e}", 500
