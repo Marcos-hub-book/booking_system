@@ -659,6 +659,8 @@ def webhook_mercadopago():
         return jsonify({'ok': False, 'error': 'preapproval_id not found'}), 400
 
     # Antes de chamar a API do MP, verifique se temos um usuário local com esse subscription_id.
+    # Converte para string para evitar comparação varchar=bigint no banco
+    preapproval_id = str(preapproval_id).strip()
     user = User.query.filter_by(subscription_id=preapproval_id).first()
     if not user:
         # Não temos esse ID localmente; provavelmente outro tipo de assinatura/evento.
