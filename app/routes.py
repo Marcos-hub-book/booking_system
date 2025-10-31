@@ -610,6 +610,7 @@ def webhook_mercadopago():
     #     if not hmac.compare_digest(signature, expected):
     #         return 'Invalid signature', 403
 
+
     # Log full payload for diagnostics
     try:
         data = request.get_json(silent=True) or {}
@@ -618,23 +619,26 @@ def webhook_mercadopago():
         current_app.logger.error(f"Erro ao ler JSON do webhook: {e}")
         data = {}
 
+    # Filtro: só processa eventos de preapproval
+    event_type = data.get('type') or data.get('topic') or ''
+    entity = data.get('entity') or ''
+    # Mercado Pago pode enviar vários tipos de eventos, só queremos preapproval
+    if event_type not in ['preapproval', 'subscription', 'subscription_preapproval'] and entity != 'preapproval':
+        current_app.logger.info(f"Webhook ignorado: tipo de evento não é preapproval. type={event_type}, entity={entity}, payload={data}")
+        return jsonify({'ok': False, 'ignored': True, 'reason': 'not preapproval event'}), 200
+
     # Try to extract preapproval_id from multiple possible fields
     preapproval_id = None
-    # Direct notification (aceita 'preapproval', 'subscription', 'subscription_preapproval')
-    if 'id' in data and (data.get('type') in ['preapproval', 'subscription', 'subscription_preapproval'] or data.get('entity') == 'preapproval'):
+    if 'id' in data:
         preapproval_id = data['id']
-    # Sometimes Mercado Pago sends 'data' field with 'id'
     if not preapproval_id and isinstance(data.get('data'), dict):
         if 'id' in data['data']:
             preapproval_id = data['data']['id']
-    # Sometimes 'resource' field
     if not preapproval_id and isinstance(data.get('resource'), dict):
         if 'id' in data['resource']:
             preapproval_id = data['resource']['id']
-    # Try query string
     if not preapproval_id:
         preapproval_id = request.args.get('id')
-    # Try 'subscription_id' field
     if not preapproval_id and 'subscription_id' in data:
         preapproval_id = data['subscription_id']
 
