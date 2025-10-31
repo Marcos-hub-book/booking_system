@@ -610,17 +610,38 @@ def webhook_mercadopago():
     #     if not hmac.compare_digest(signature, expected):
     #         return 'Invalid signature', 403
 
-    data = request.get_json(silent=True) or {}
-    # Mercado Pago envia vários tipos de notificação, mas para assinatura o importante é preapproval
+    # Log full payload for diagnostics
+    try:
+        data = request.get_json(silent=True) or {}
+        current_app.logger.info(f"MercadoPago Webhook payload: {data}")
+    except Exception as e:
+        current_app.logger.error(f"Erro ao ler JSON do webhook: {e}")
+        data = {}
+
+    # Try to extract preapproval_id from multiple possible fields
     preapproval_id = None
-    # Notificação direta
-    if 'id' in data and data.get('type') == 'preapproval':
+    # Direct notification
+    if 'id' in data and (data.get('type') == 'preapproval' or data.get('type') == 'subscription'):
         preapproval_id = data['id']
-    # Notificação via query string
+    # Sometimes Mercado Pago sends 'data' field with 'id'
+    if not preapproval_id and isinstance(data.get('data'), dict):
+        if 'id' in data['data']:
+            preapproval_id = data['data']['id']
+    # Sometimes 'resource' field
+    if not preapproval_id and isinstance(data.get('resource'), dict):
+        if 'id' in data['resource']:
+            preapproval_id = data['resource']['id']
+    # Try query string
     if not preapproval_id:
         preapproval_id = request.args.get('id')
+    # Try 'subscription_id' field
+    if not preapproval_id and 'subscription_id' in data:
+        preapproval_id = data['subscription_id']
+
     if not preapproval_id:
+        current_app.logger.warning(f"Webhook: preapproval_id not found. Payload: {data}, Args: {request.args}")
         return jsonify({'ok': False, 'error': 'preapproval_id not found'}), 400
+
     # Busca preapproval e atualiza usuário
     try:
         preapproval = _mp_get_preapproval(preapproval_id)
@@ -629,8 +650,10 @@ def webhook_mercadopago():
         if user:
             _apply_preapproval_to_user(user, preapproval)
             db.session.commit()
+            current_app.logger.info(f"Webhook: assinatura atualizada para user_id={user.id}, status={user.subscription_status}")
             return jsonify({'ok': True, 'user_id': user.id, 'status': user.subscription_status})
         else:
+            current_app.logger.warning(f"Webhook: user not found for subscription_id={preapproval_id}")
             return jsonify({'ok': False, 'error': 'user not found'}), 404
     except Exception as e:
         current_app.logger.exception('Erro no webhook Mercado Pago: %s', e)
