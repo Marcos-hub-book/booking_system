@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
-from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule
+from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional
 from .models import Location
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, or_
@@ -99,8 +99,105 @@ def platform_account_trial_extend(user_id):
 @main.route('/dashboard/add_event', endpoint='dashboard_add_event', methods=['POST'])
 @login_required
 def dashboard_add_event():
-    # Apenas salva um bloqueio ou evento simples (mock)
-    flash('Evento/bloqueio adicionado (mock).', 'success')
+    if current_user.role != 'admin':
+        abort(403)
+    # Bloqueio simples como um Appointment sem service/customer
+    professional_id = request.form.get('professional_id', type=int)
+    date_str = request.form.get('data')
+    time_str = request.form.get('hora')
+    duracao = request.form.get('duracao', type=int)
+    descricao = (request.form.get('descricao') or '').strip()
+    if not (professional_id and date_str and time_str and duracao):
+        flash('Preencha profissional, data, hora e duração.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    prof = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first()
+    if not prof:
+        flash('Profissional inválido.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    try:
+        appt_time = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M')
+    except Exception:
+        flash('Data/hora inválida.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    # Cria como Appointment ativo, sem service_id/customer_id
+    bloqueio = Appointment(
+        customer_id=None,
+        professional_id=prof.id,
+        service_id=None,
+        location_id=None,
+        appointment_time=appt_time,
+        ativo=True,
+        descricao=descricao or 'Bloqueio',
+        duracao=duracao
+    )
+    db.session.add(bloqueio)
+    db.session.commit()
+    flash('Bloqueio criado com sucesso.', 'success')
+    return redirect(url_for('main.dashboard', data=appt_time.strftime('%Y-%m-%d')))
+
+# Rota real para adicionar agendamento via dashboard
+@main.route('/dashboard/add_appointment', endpoint='dashboard_add_appointment', methods=['POST'])
+@login_required
+def dashboard_add_appointment():
+    if current_user.role != 'admin':
+        abort(403)
+    # Coleta dados do formulário
+
+    customer_name = request.form.get('customer_name')
+    customer_phone = request.form.get('customer_phone')
+    customer_email = request.form.get('customer_email')
+    customer_birthdate = request.form.get('customer_birthdate')
+    professional_id = request.form.get('professional_id', type=int)
+    service_id = request.form.get('service_id', type=int)
+    location_id = request.form.get('location_id', type=int)
+    appointment_time = request.form.get('appointment_time')
+    descricao = request.form.get('descricao')
+    duracao = request.form.get('duracao', type=int)
+
+    # Validação básica: apenas nome do cliente, profissional e horário são obrigatórios
+    if not (customer_name and professional_id and appointment_time):
+        flash('Preencha nome do cliente, profissional e horário.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    # Busca ou cria cliente (se telefone informado, busca por telefone; senão, busca por nome)
+    customer = None
+    if customer_phone:
+        customer = Customer.query.filter_by(phone=customer_phone).first()
+    if not customer:
+        customer = Customer.query.filter_by(name=customer_name).first()
+    if not customer:
+        try:
+            birthdate = datetime.strptime(customer_birthdate, '%Y-%m-%d').date() if customer_birthdate else datetime.now().date()
+        except Exception:
+            birthdate = datetime.now().date()
+        customer = Customer(name=customer_name, phone=customer_phone, email=customer_email, birthdate=birthdate)
+        customer.admins.append(current_user)
+        db.session.add(customer)
+        db.session.commit()
+    elif current_user not in customer.admins:
+        customer.admins.append(current_user)
+        db.session.commit()
+
+    # Cria agendamento
+    try:
+        appt_time = datetime.strptime(appointment_time, '%Y-%m-%d %H:%M')
+    except Exception:
+        flash('Data/hora do agendamento inválida.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    appointment = Appointment(
+        customer_id=customer.id,
+        professional_id=professional_id,
+        service_id=service_id,
+        location_id=location_id,
+        appointment_time=appt_time,
+        ativo=True,
+        descricao=descricao,
+        duracao=duracao
+    )
+    db.session.add(appointment)
+    db.session.commit()
+    flash('Agendamento criado com sucesso!', 'success')
     return redirect(url_for('main.dashboard'))
 
 @main.route('/dashboard/profile', endpoint='dashboard_profile', methods=['GET'])
@@ -343,84 +440,50 @@ def login_phone_screen(salao_slug):
     return render_template('cliente_login_phone.html', salao_slug=salao_slug, admin=admin)
 
 
+def _normalize_phone(raw: str) -> str | None:
+    if not raw:
+        return None
+    digits = ''.join(c for c in str(raw) if c.isdigit())
+    # If comes with country code (e.g., 55 + 11 digits), keep last 11 for BR default
+    if len(digits) > 11 and digits.startswith('55'):
+        digits = digits[-11:]
+    return digits if len(digits) == 11 else None
+
+
+# Verifica se existe cliente por telefone (sem criar conta)
 @main.route('/api/auth/check_phone', methods=['POST'])
-def api_check_phone():
-    data = request.get_json(silent=True) or {}
-    phone = (data.get('phone') or '').strip()
+def api_auth_check_phone():
+    data = request.get_json(silent=True) or request.form or {}
     salao_slug = (data.get('salao_slug') or '').strip()
-    if not (phone and salao_slug):
-        return jsonify({'ok': False, 'error': 'missing_parameters'}), 400
     admin = User.query.filter_by(username=salao_slug, role='admin').first()
     if not admin:
         return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-
-    # Check local DB for customer linked to this admin
-    customer = Customer.query.filter_by(phone=phone).first()
-    exists_local = False
-    customer_name = None
-    if customer and admin in customer.admins:
-        exists_local = True
-        customer_name = customer.name
-
-    return jsonify({'ok': True, 'exists': exists_local, 'name': customer_name})
-
-
-@main.route('/api/auth/login', methods=['POST'])
-def api_customer_login():
-    data = request.get_json(silent=True) or {}
-    phone = (data.get('phone') or '').strip()
-    password = (data.get('password') or '').strip()
-    salao_slug = (data.get('salao_slug') or '').strip()
-    if not (phone and password and salao_slug):
-        return jsonify({'ok': False, 'error': 'missing_parameters'}), 400
-    admin = User.query.filter_by(username=salao_slug, role='admin').first()
-    if not admin:
-        return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-    customer = Customer.query.filter_by(phone=phone).first()
-    if not customer or admin not in customer.admins or not customer.check_password(password):
-        return jsonify({'ok': False, 'error': 'invalid_credentials'}), 401
-    jwt_token = _create_customer_jwt(customer.id, customer.name, admin.id)
-    resp = jsonify({'ok': True})
-    max_age = 60 * 60 * 24 * 180
-    resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
-    return resp
-
-
-@main.route('/api/auth/register', methods=['POST'])
-def api_register_customer():
-    data = request.get_json(silent=True) or {}
-    salao_slug = (data.get('salao_slug') or '').strip()
-    first_name = (data.get('firstName') or '').strip()
-    last_name = (data.get('lastName') or '').strip()
-    email = (data.get('email') or '').strip()
-    birthdate = (data.get('birthdate') or '').strip()
-    phone = (data.get('phone') or '').strip()
-    password = (data.get('password') or '').strip()
-    if not (salao_slug and first_name and birthdate and phone and password):
-        return jsonify({'ok': False, 'error': 'missing_parameters'}), 400
-    admin = User.query.filter_by(username=salao_slug, role='admin').first()
-    if not admin:
-        return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-    try:
-        bd = datetime.strptime(birthdate, '%Y-%m-%d').date()
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_birthdate'}), 400
-    full_name = f"{first_name} {last_name}".strip()
+    phone_raw = data.get('phone')
+    phone = _normalize_phone(phone_raw)
+    if not phone:
+        return jsonify({'ok': False, 'error': 'invalid_phone'}), 400
     customer = Customer.query.filter_by(phone=phone).first()
     if not customer:
-        customer = Customer(name=full_name, birthdate=bd, phone=phone, email=email or None)
-        customer.set_password(password)
-        db.session.add(customer)
-        db.session.commit()
-    else:
-        # If already exists, ensure linked and set/overwrite password only if empty
-        if not customer.password:
-            customer.set_password(password)
-        if email:
-            customer.email = email
-        if full_name and customer.name != full_name:
-            customer.name = full_name
-        db.session.commit()
+        return jsonify({'ok': True, 'exists': False})
+    return jsonify({'ok': True, 'exists': True, 'name': customer.name})
+
+
+# Login por telefone + senha (gera cookie JWT do cliente)
+@main.route('/api/auth/login', methods=['POST'])
+def api_auth_login():
+    data = request.get_json(silent=True) or {}
+    salao_slug = (data.get('salao_slug') or '').strip()
+    admin = User.query.filter_by(username=salao_slug, role='admin').first()
+    if not admin:
+        return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
+    phone = _normalize_phone(data.get('phone'))
+    password = (data.get('password') or '').strip()
+    if not (phone and password):
+        return jsonify({'ok': False, 'error': 'missing_fields'}), 400
+    customer = Customer.query.filter_by(phone=phone).first()
+    if not customer or not customer.check_password(password):
+        return jsonify({'ok': False, 'error': 'invalid_credentials'}), 401
+    # Link with this salon/admin if not linked yet
     if admin not in customer.admins:
         customer.admins.append(admin)
         db.session.commit()
@@ -430,6 +493,54 @@ def api_register_customer():
     resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
     return resp
 
+
+# Registro de novo cliente (ou completa cadastro) e autentica
+@main.route('/api/auth/register', methods=['POST'])
+def api_auth_register():
+    data = request.get_json(silent=True) or {}
+    salao_slug = (data.get('salao_slug') or '').strip()
+    admin = User.query.filter_by(username=salao_slug, role='admin').first()
+    if not admin:
+        return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
+    phone = _normalize_phone(data.get('phone'))
+    first_name = (data.get('firstName') or '').strip()
+    last_name = (data.get('lastName') or '').strip()
+    email = (data.get('email') or '').strip() or None
+    birthdate = (data.get('birthdate') or '').strip()
+    password = (data.get('password') or '').strip()
+    if not (phone and first_name and birthdate and password):
+        return jsonify({'ok': False, 'error': 'missing_fields'}), 400
+    full_name = f"{first_name} {last_name}".strip()
+    try:
+        bd = datetime.strptime(birthdate, '%Y-%m-%d').date()
+    except Exception:
+        return jsonify({'ok': False, 'error': 'invalid_birthdate'}), 400
+    customer = Customer.query.filter_by(phone=phone).first()
+    if not customer:
+        customer = Customer(name=full_name, birthdate=bd, phone=phone, email=email)
+        customer.set_password(password)
+        db.session.add(customer)
+        db.session.commit()
+    else:
+        # Completa dados se necessário
+        if not customer.password:
+            customer.set_password(password)
+        if email:
+            customer.email = email
+        if full_name and customer.name != full_name:
+            customer.name = full_name
+        if not customer.birthdate:
+            customer.birthdate = bd
+        db.session.commit()
+    # Garante vínculo com o salão
+    if admin not in customer.admins:
+        customer.admins.append(admin)
+        db.session.commit()
+    jwt_token = _create_customer_jwt(customer.id, customer.name, admin.id)
+    resp = jsonify({'ok': True})
+    max_age = 60 * 60 * 24 * 180
+    resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
+    return resp
 
 @main.route('/logout-customer', methods=['POST'])
 def logout_customer():
@@ -724,16 +835,119 @@ def dashboard():
         data = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.today().date()
     except Exception:
         data = datetime.today().date()
-    profissional_id = request.args.get('profissional_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
     status = request.args.get('status', default='ativos')
     profissionais = Professional.query.filter_by(admin_id=current_user.id).all()
     servicos = Service.query.filter_by(admin_id=current_user.id).all()
     locations = Location.query.filter_by(admin_id=current_user.id).all()
-    agendamentos = []
+    # Busca agendamentos do banco de dados
+    query = Appointment.query.options(joinedload(Appointment.professional), joinedload(Appointment.service), joinedload(Appointment.customer), joinedload(Appointment.location)).join(Professional).filter(Professional.admin_id == current_user.id)
+    query = query.filter(func.date(Appointment.appointment_time) == data)
+    if professional_id:
+        query = query.filter(Appointment.professional_id == professional_id)
+    if status == 'ativos':
+        query = query.filter(Appointment.ativo == True)
+    elif status == 'cancelados':
+        query = query.filter(Appointment.ativo == False)
+    agendamentos = query.order_by(Appointment.appointment_time.asc()).all()
     # Adiciona timedelta ao contexto para o template
-    return render_template('dashboard_agenda.html', data=data, profissional_id=profissional_id,
+    return render_template('dashboard_agenda.html', data=data, professional_id=professional_id,
                            status=status, profissionais=profissionais, servicos=servicos,
                            locations=locations, agendamentos=agendamentos, timedelta=timedelta)
+
+# Rota para cancelar agendamento pelo dashboard (mantida após dashboard)
+@main.route('/dashboard/cancelar_agendamento/<int:agendamento_id>', methods=['POST'])
+@login_required
+def dashboard_cancelar_agendamento(agendamento_id):
+    agendamento = Appointment.query.join(Professional).filter(Appointment.id == agendamento_id, Professional.admin_id == current_user.id).first_or_404()
+    agendamento.ativo = False
+    db.session.commit()
+    flash('Agendamento cancelado com sucesso.', 'success')
+    # Redireciona para o dashboard na mesma data
+    date_str = agendamento.appointment_time.strftime('%Y-%m-%d')
+    return redirect(url_for('main.dashboard', data=date_str))
+
+# Rota para retornar horários disponíveis (slots) para agendamento
+@main.route('/dashboard/available_times', methods=['GET'])
+@login_required
+def dashboard_available_times():
+    if current_user.role != 'admin':
+        abort(403)
+    professional_id = request.args.get('professional_id', type=int)
+    service_id = request.args.get('service_id', type=int)
+    date_str = request.args.get('date')
+    location_id = request.args.get('location_id', type=int)
+    if not (professional_id and service_id and date_str):
+        return jsonify({'ok': False, 'error': 'missing_parameters'}), 400
+    professional = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first()
+    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first()
+    if not professional or not service:
+        return jsonify({'ok': False, 'error': 'not_found'}), 404
+    try:
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except Exception:
+        return jsonify({'ok': False, 'error': 'invalid_date'}), 400
+    duration = service.duration
+    # Gera slots de 15 em 15 minutos entre o horário de início e fim do profissional/local
+    weekday = date.weekday()
+    # Busca janelas do profissional
+    schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id, weekday=weekday).all()
+    # Se plano BASIC e location_id, busca janelas do local
+    loc_schedules = []
+    if is_basic(current_user) and location_id:
+        loc_schedules = LocationSchedule.query.filter_by(location_id=location_id, weekday=weekday).all()
+    # Se profissional sem janela, usar do Local em BASIC
+    if not schedules and loc_schedules:
+        class S: pass
+        schedules = []
+        for lsch in loc_schedules:
+            s = S()
+            s.start_time = lsch.start_time
+            s.end_time = lsch.end_time
+            s.break_start = lsch.break_start
+            s.break_end = lsch.break_end
+            schedules.append(s)
+    slots = []
+    for sch in schedules:
+        start_dt = datetime.combine(date, sch.start_time)
+        end_dt = datetime.combine(date, sch.end_time)
+        current = start_dt
+        while current + timedelta(minutes=duration) <= end_dt:
+            # Verifica se está em pausa
+            in_break = False
+            if sch.break_start and sch.break_end:
+                bs = datetime.combine(date, sch.break_start)
+                be = datetime.combine(date, sch.break_end)
+                if current < be and (current + timedelta(minutes=duration)) > bs:
+                    in_break = True
+            # Verifica se slot está disponível
+            if not in_break and _is_slot_available(professional, current, duration, current_user, location_id):
+                slots.append(current.strftime('%H:%M'))
+            current += timedelta(minutes=15)
+    return jsonify({'ok': True, 'slots': slots})
+
+
+@main.route('/dashboard/services_for', methods=['GET'])
+@login_required
+def dashboard_services_for():
+    """Return services filtered by current plan and selections.
+    - BASIC: filter by location_id if provided
+    - PRO/ADVANCED: filter by professional_id if provided
+    """
+    if current_user.role != 'admin':
+        abort(403)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    q = Service.query.filter_by(admin_id=current_user.id)
+    if is_basic(current_user):
+        if location_id:
+            q = q.join(Service.locations).filter(Location.id == location_id)
+    else:
+        if professional_id:
+            q = q.join(service_professional, Service.id == service_professional.c.service_id) \
+                 .filter(service_professional.c.professional_id == professional_id)
+    services = q.order_by(Service.name.asc()).all()
+    return jsonify({'ok': True, 'services': [{'id': s.id, 'name': s.name, 'duration': s.duration} for s in services]})
 
 @main.route('/logout', methods=['POST'])
 @login_required
@@ -741,6 +955,22 @@ def logout():
     logout_user()
     flash('Você saiu da conta.', 'success')
     return redirect(url_for('main.login'))
+
+
+@main.route('/api/customers/search', methods=['GET'])
+@login_required
+def api_customers_search():
+    if current_user.role != 'admin':
+        abort(403)
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({'ok': True, 'results': []})
+    # Busca clientes vinculados a este admin por nome ou telefone
+    results = Customer.query.join(Customer.admins) \
+        .filter(User.id == current_user.id) \
+        .filter(or_(Customer.name.ilike(f'%{q}%'), Customer.phone.ilike(f'%{q}%'))) \
+        .order_by(Customer.name.asc()).limit(8).all()
+    return jsonify({'ok': True, 'results': [{'id': c.id, 'name': c.name, 'phone': c.phone} for c in results]})
 
 @main.route('/professionals', endpoint='professionals_list', methods=['GET'])
 @login_required
@@ -758,6 +988,51 @@ def services_list():
     services = Service.query.options(joinedload(Service.professionals), joinedload(Service.locations)).filter_by(admin_id=current_user.id).all()
     return render_template('services_list.html', services=services)
 
+# Rota para editar serviço
+@main.route('/services/<int:service_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_service(service_id):
+    if current_user.role != 'admin':
+        abort(403)
+    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
+    pros = Professional.query.filter_by(admin_id=current_user.id).all()
+    locs = Location.query.filter_by(admin_id=current_user.id).all()
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        duration = request.form.get('duration', type=int)
+        price = request.form.get('price', type=float)
+        if not (name and duration and price is not None):
+            flash('Preencha nome, duração e preço.', 'danger')
+            return render_template('edit_service.html', service=service, professionals=pros, locations=locs)
+        service.name = name
+        service.duration = duration
+        service.price = price
+        # Atualizar profissionais
+        pro_ids = request.form.getlist('professional_ids')
+        service.professionals = Professional.query.filter(Professional.id.in_(pro_ids), Professional.admin_id==current_user.id).all() if pro_ids else []
+        # Atualizar locais
+        loc_ids = request.form.getlist('location_ids')
+        service.locations = Location.query.filter(Location.id.in_(loc_ids), Location.admin_id==current_user.id).all() if loc_ids else []
+        db.session.commit()
+        flash('Serviço atualizado com sucesso.', 'success')
+        return redirect(url_for('main.services_list'))
+    return render_template('edit_service.html', service=service, professionals=pros, locations=locs)
+
+# Rota para confirmar exclusão de serviço
+@main.route('/services/<int:service_id>/delete', methods=['GET', 'POST'])
+@login_required
+def confirm_delete_service(service_id):
+    if current_user.role != 'admin':
+        abort(403)
+    service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
+    if request.method == 'POST':
+        db.session.delete(service)
+        db.session.commit()
+        flash('Serviço excluído com sucesso.', 'success')
+        return redirect(url_for('main.services_list'))
+    return render_template('confirm_delete_service.html', service=service)
+
+
 @main.route('/locations', endpoint='locations_list', methods=['GET'])
 @login_required
 def locations_list():
@@ -765,6 +1040,27 @@ def locations_list():
         abort(403)
     locs = Location.query.options(joinedload(Location.schedules)).filter_by(admin_id=current_user.id).all()
     return render_template('locations_list.html', locations=locs)
+
+# Nova rota para editar local
+@main.route('/locations/<int:location_id>/edit', endpoint='edit_location', methods=['GET', 'POST'])
+@login_required
+def edit_location(location_id):
+    if current_user.role != 'admin':
+        abort(403)
+    loc = Location.query.filter_by(id=location_id, admin_id=current_user.id).first_or_404()
+    # Adiciona os horários do local para o template
+    horarios = {h.weekday: h for h in LocationSchedule.query.filter_by(location_id=loc.id).all()}
+    # Lista de dias da semana para o template
+    dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if name:
+            loc.name = name
+            db.session.commit()
+            flash('Local atualizado com sucesso.', 'success')
+            return redirect(url_for('main.locations_list'))
+        flash('Nome do local é obrigatório.', 'danger')
+    return render_template('edit_location.html', location=loc, horarios=horarios, dias=dias)
 
 @main.route('/professionals/add', endpoint='add_professional', methods=['GET','POST'])
 @login_required
@@ -783,6 +1079,7 @@ def add_professional():
         return redirect(url_for('main.professionals_list'))
     return render_template('add_professional.html', back_url=url_for('main.professionals_list'))
 
+
 @main.route('/services/add', endpoint='add_service', methods=['GET','POST'])
 @login_required
 def add_service():
@@ -797,58 +1094,18 @@ def add_service():
         if not (name and duration and price is not None):
             flash('Preencha nome, duração e preço.', 'danger')
             return render_template('add_service.html', professionals=pros, locations=locs)
-        s = Service(name=name, duration=duration, price=price, admin_id=current_user.id)
-        db.session.add(s)
-        db.session.flush()
-        # associações
+        service = Service(name=name, duration=duration, price=price, admin_id=current_user.id)
+        # Profissionais
         pro_ids = request.form.getlist('professional_ids')
-        if pro_ids:
-            sel_pros = Professional.query.filter(Professional.id.in_(pro_ids), Professional.admin_id==current_user.id).all()
-            for p in sel_pros:
-                s.professionals.append(p)
+        service.professionals = Professional.query.filter(Professional.id.in_(pro_ids), Professional.admin_id==current_user.id).all() if pro_ids else []
+        # Locais
         loc_ids = request.form.getlist('location_ids')
-        if loc_ids:
-            sel_locs = Location.query.filter(Location.id.in_(loc_ids), Location.admin_id==current_user.id).all()
-            for l in sel_locs:
-                s.locations.append(l)
+        service.locations = Location.query.filter(Location.id.in_(loc_ids), Location.admin_id==current_user.id).all() if loc_ids else []
+        db.session.add(service)
         db.session.commit()
-        flash('Serviço criado.', 'success')
+        flash('Serviço adicionado com sucesso.', 'success')
         return redirect(url_for('main.services_list'))
     return render_template('add_service.html', professionals=pros, locations=locs)
-
-@main.route('/locations/add', endpoint='add_location', methods=['GET','POST'])
-@login_required
-def add_location():
-    if current_user.role != 'admin':
-        abort(403)
-    if request.method == 'POST':
-        name = (request.form.get('name') or '').strip()
-        if not name:
-            flash('Nome do local é obrigatório.', 'danger')
-            return render_template('add_location.html')
-        loc = Location(name=name, admin_id=current_user.id)
-        db.session.add(loc)
-        db.session.flush()
-        # Horários
-        workdays = request.form.getlist('workdays')
-        for wd in workdays:
-            i = int(wd)
-            st = request.form.get(f'start_{i}')
-            en = request.form.get(f'end_{i}')
-            bs = request.form.get(f'break_start_{i}')
-            be = request.form.get(f'break_end_{i}')
-            if st and en:
-                ls = LocationSchedule(location_id=loc.id,
-                                      weekday=i,
-                                      start_time=datetime.strptime(st, '%H:%M').time(),
-                                      end_time=datetime.strptime(en, '%H:%M').time(),
-                                      break_start=datetime.strptime(bs, '%H:%M').time() if bs else None,
-                                      break_end=datetime.strptime(be, '%H:%M').time() if be else None)
-                db.session.add(ls)
-        db.session.commit()
-        flash('Local criado.', 'success')
-        return redirect(url_for('main.locations_list'))
-    return render_template('add_location.html')
 
 PLAN_PRICES = {
     'basic': Decimal('19.90'),
@@ -996,3 +1253,371 @@ def dbtest():
         return f"Conexão OK! Usuários cadastrados: {count}"
     except Exception as e:
         return f"Erro na conexão: {e}", 500
+
+
+# ==========================
+# Admin: profissionais (editar/excluir) e locais (adicionar)
+# ==========================
+
+@main.route('/professionals/<int:professional_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_professional(professional_id):
+    if current_user.role != 'admin':
+        abort(403)
+    prof = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first_or_404()
+    dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+    # Mapa weekday -> schedule
+    horarios = {h.weekday: h for h in ProfessionalSchedule.query.filter_by(professional_id=prof.id).all()}
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Nome é obrigatório.', 'danger')
+            return render_template('edit_professional.html', professional=prof, dias=dias, horarios=horarios)
+        prof.name = name
+        # Atualiza horários
+        workdays = set(int(x) for x in request.form.getlist('workdays'))
+        # Remove dias que não estão selecionados
+        for wd, sch in list(horarios.items()):
+            if wd not in workdays:
+                db.session.delete(sch)
+                horarios.pop(wd, None)
+        # Cria/atualiza selecionados
+        for i in workdays:
+            start_val = (request.form.get(f'start_{i}') or '').strip()
+            end_val = (request.form.get(f'end_{i}') or '').strip()
+            bstart_val = (request.form.get(f'break_start_{i}') or '').strip()
+            bend_val = (request.form.get(f'break_end_{i}') or '').strip()
+            if not (start_val and end_val):
+                # Se dia marcado sem horas, ignora
+                continue
+            try:
+                st = datetime.strptime(start_val, '%H:%M').time()
+                en = datetime.strptime(end_val, '%H:%M').time()
+                bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+            except Exception:
+                continue
+            sch = horarios.get(i)
+            if not sch:
+                sch = ProfessionalSchedule(professional_id=prof.id, weekday=i, start_time=st, end_time=en, break_start=bs, break_end=be)
+                db.session.add(sch)
+                horarios[i] = sch
+            else:
+                sch.start_time = st
+                sch.end_time = en
+                sch.break_start = bs
+                sch.break_end = be
+        db.session.commit()
+        flash('Profissional atualizado com sucesso.', 'success')
+        return redirect(url_for('main.professionals_list'))
+    return render_template('edit_professional.html', professional=prof, dias=dias, horarios=horarios)
+
+
+@main.route('/professionals/<int:professional_id>/delete', methods=['GET', 'POST'])
+@login_required
+def confirm_delete_professional(professional_id):
+    if current_user.role != 'admin':
+        abort(403)
+    prof = Professional.query.filter_by(id=professional_id, admin_id=current_user.id).first_or_404()
+    if request.method == 'POST':
+        # Exclui agendamentos e horários ligados a este profissional
+        Appointment.query.filter_by(professional_id=prof.id).delete(synchronize_session=False)
+        ProfessionalSchedule.query.filter_by(professional_id=prof.id).delete(synchronize_session=False)
+        db.session.delete(prof)
+        db.session.commit()
+        flash('Profissional excluído com sucesso.', 'success')
+        return redirect(url_for('main.professionals_list'))
+    return render_template('confirm_delete_professional.html', professional=prof)
+
+
+@main.route('/locations/add', methods=['GET', 'POST'])
+@login_required
+def add_location():
+    if current_user.role != 'admin':
+        abort(403)
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        if not name:
+            flash('Nome do local é obrigatório.', 'danger')
+            return render_template('add_location.html')
+        loc = Location(name=name, admin_id=current_user.id)
+        db.session.add(loc)
+        db.session.flush()  # obtém loc.id antes de commit
+        workdays = set(int(x) for x in request.form.getlist('workdays'))
+        for i in workdays:
+            start_val = (request.form.get(f'start_{i}') or '').strip()
+            end_val = (request.form.get(f'end_{i}') or '').strip()
+            bstart_val = (request.form.get(f'break_start_{i}') or '').strip()
+            bend_val = (request.form.get(f'break_end_{i}') or '').strip()
+            if not (start_val and end_val):
+                continue
+            try:
+                st = datetime.strptime(start_val, '%H:%M').time()
+                en = datetime.strptime(end_val, '%H:%M').time()
+                bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+            except Exception:
+                continue
+            db.session.add(LocationSchedule(location_id=loc.id, weekday=i, start_time=st, end_time=en, break_start=bs, break_end=be))
+        db.session.commit()
+        flash('Local adicionado com sucesso.', 'success')
+        return redirect(url_for('main.locations_list'))
+    return render_template('add_location.html')
+
+
+# ==========================
+# Fluxo do cliente (páginas do salão)
+# ==========================
+
+def _require_customer_auth(salao_slug):
+    if not getattr(g, 'customer_id', None):
+        return redirect(url_for('main.login_phone_screen', salao_slug=salao_slug))
+    return None
+
+
+@main.route('/<salao_slug>')
+def salao_home(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    return render_template('salao_home.html', admin=admin)
+
+
+@main.route('/<salao_slug>/opcoes')
+def cliente_opcoes(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    # exige autenticação de cliente
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    has_locations = Location.query.filter_by(admin_id=admin.id).count() > 0
+    return render_template('cliente_opcoes.html', salao_slug=salao_slug, has_locations=has_locations)
+
+
+@main.route('/<salao_slug>/local', methods=['GET', 'POST'])
+def salao_local(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    if request.method == 'POST':
+        location_id = request.form.get('location_id', type=int)
+        if location_id:
+            return redirect(url_for('main.salao_servico', salao_slug=salao_slug, location_id=location_id))
+    locs = Location.query.filter_by(admin_id=admin.id).all()
+    return render_template('cliente_local.html', locations=locs, salao_slug=salao_slug, back_url=url_for('main.cliente_opcoes', salao_slug=salao_slug))
+
+
+@main.route('/<salao_slug>/servico', methods=['GET', 'POST'])
+def salao_servico(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    location_id = request.args.get('location_id', type=int)
+    q = Service.query.filter_by(admin_id=admin.id)
+    if is_basic(admin) and location_id:
+        q = q.join(Service.locations).filter(Location.id == location_id)
+    services = q.order_by(Service.name.asc()).all()
+    if request.method == 'POST':
+        service_id = request.form.get('service_id', type=int)
+        if service_id:
+            return redirect(url_for('main.cliente_profissional', salao_slug=salao_slug, service_id=service_id, location_id=location_id))
+    back_url = url_for('main.salao_local', salao_slug=salao_slug) if Location.query.filter_by(admin_id=admin.id).count() > 0 else url_for('main.cliente_opcoes', salao_slug=salao_slug)
+    return render_template('cliente_servico.html', services=services, salao_slug=salao_slug, back_url=back_url)
+
+
+@main.route('/<salao_slug>/profissional', methods=['GET', 'POST'], endpoint='cliente_profissional')
+def cliente_profissional_route(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    service_id = request.args.get('service_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    if not service_id:
+        return redirect(url_for('main.salao_servico', salao_slug=salao_slug, location_id=location_id))
+    # profissionais associados ao serviço
+    pros = Professional.query.join(service_professional, Professional.id == service_professional.c.professional_id)
+    pros = pros.filter(service_professional.c.service_id == service_id, Professional.admin_id == admin.id).all()
+    # fallback: se nenhum associado, lista todos do admin
+    if not pros:
+        pros = Professional.query.filter_by(admin_id=admin.id).all()
+    if request.method == 'POST':
+        pid = request.form.get('professional_id', type=int)
+        if pid:
+            return redirect(url_for('main.cliente_periodo', salao_slug=salao_slug, service_id=service_id, professional_id=pid, location_id=location_id))
+    back_url = url_for('main.salao_servico', salao_slug=salao_slug, location_id=location_id) if is_basic(admin) and location_id else url_for('main.salao_servico', salao_slug=salao_slug)
+    return render_template('cliente_profissional.html', professionals=pros, salao_slug=salao_slug, back_url=back_url)
+
+
+@main.route('/<salao_slug>/periodo', methods=['GET', 'POST'])
+def cliente_periodo(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    if request.method == 'POST':
+        period = request.form.get('period')
+        if period in ('manha', 'tarde', 'noite'):
+            return redirect(url_for('main.cliente_data', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period))
+    back_url = url_for('main.cliente_profissional', salao_slug=salao_slug, service_id=service_id, location_id=location_id)
+    return render_template('cliente_periodo.html', salao_slug=salao_slug, back_url=back_url)
+
+
+def _period_range(period: str):
+    # retorna (start_hour, end_hour) inclusivo de início, exclusivo de fim
+    if period == 'manha':
+        return (8, 12)
+    if period == 'tarde':
+        return (12, 18)
+    if period == 'noite':
+        return (18, 22)
+    return (8, 22)
+
+
+@main.route('/<salao_slug>/data', methods=['GET', 'POST'])
+def cliente_data(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    period = request.args.get('period')
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
+    prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first_or_404()
+    start_h, end_h = _period_range(period)
+    # próximos 14 dias com pelo menos um slot disponível
+    days = []
+    today = datetime.today().date()
+    for i in range(0, 14):
+        d = today + timedelta(days=i)
+        # procura se existe ao menos 1 slot dentro do período
+        cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
+        end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+        ok = False
+        while cur + timedelta(minutes=service.duration) <= end_dt:
+            if _is_slot_available(prof, cur, service.duration, admin, location_id):
+                ok = True
+                break
+            cur += timedelta(minutes=15)
+        if ok:
+            days.append(d)
+    if request.method == 'POST':
+        date_str = request.form.get('date')
+        try:
+            sel = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            sel = None
+        if sel:
+            return redirect(url_for('main.cliente_horario', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period, date=sel.strftime('%Y-%m-%d')))
+    back_url = url_for('main.cliente_periodo', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id)
+    return render_template('cliente_data.html', days=days, salao_slug=salao_slug, back_url=back_url)
+
+
+@main.route('/<salao_slug>/horario', methods=['GET', 'POST'])
+def cliente_horario(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    period = request.args.get('period')
+    date_str = request.args.get('date')
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
+    prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first_or_404()
+    try:
+        d = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except Exception:
+        return redirect(url_for('main.cliente_data', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period))
+    start_h, end_h = _period_range(period)
+    # gera slots de 15min dentro do período
+    slots = []
+    cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
+    end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+    while cur + timedelta(minutes=service.duration) <= end_dt:
+        if _is_slot_available(prof, cur, service.duration, admin, location_id):
+            slots.append(cur.strftime('%H:%M'))
+        cur += timedelta(minutes=15)
+    if request.method == 'POST':
+        horario = request.form.get('horario')
+        if horario:
+            return redirect(url_for('main.confirmar_agendamento', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, date=d.strftime('%Y-%m-%d'), horario=horario))
+    back_url = url_for('main.cliente_data', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period)
+    return render_template('cliente_horario.html', slots=slots, salao_slug=salao_slug, back_url=back_url)
+
+
+@main.route('/<salao_slug>/confirmar', methods=['GET', 'POST'])
+def confirmar_agendamento(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    date_str = request.args.get('date')
+    horario = request.args.get('horario')
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
+    professional = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first_or_404()
+    try:
+        appt_dt = datetime.strptime(f"{date_str} {horario}", '%Y-%m-%d %H:%M')
+    except Exception:
+        return redirect(url_for('main.cliente_horario', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, date=date_str))
+    if request.method == 'POST':
+        # cria customer a partir do cookie
+        cust_id = getattr(g, 'customer_id', None)
+        cust = Customer.query.get(cust_id) if cust_id else None
+        if not cust:
+            return redirect(url_for('main.login_phone_screen', salao_slug=salao_slug))
+        if not _is_slot_available(professional, appt_dt, service.duration, admin, location_id):
+            flash('O horário selecionado não está mais disponível.', 'warning')
+            return redirect(url_for('main.cliente_horario', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, date=date_str))
+        appt = Appointment(customer_id=cust.id, professional_id=professional.id, service_id=service.id, location_id=location_id, appointment_time=appt_dt, ativo=True)
+        db.session.add(appt)
+        db.session.commit()
+        return render_template('agendamento_sucesso.html', salao_slug=salao_slug)
+    data_fmt = appt_dt.strftime('%d/%m/%Y')
+    hora_fmt = appt_dt.strftime('%H:%M')
+    return render_template('confirmar_agendamento.html', service=service, professional=professional, data=data_fmt, horario=hora_fmt)
+
+
+@main.route('/<salao_slug>/meus-agendamentos')
+def meus_agendamentos_cliente(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    cust_id = getattr(g, 'customer_id', None)
+    if not cust_id:
+        return redirect(url_for('main.login_phone_screen', salao_slug=salao_slug))
+    # Seleciona agendamentos deste cliente com profissionais do admin
+    ags = Appointment.query.join(Professional).filter(
+        Appointment.customer_id == cust_id,
+        Professional.admin_id == admin.id,
+        Appointment.ativo == True
+    ).options(joinedload(Appointment.service), joinedload(Appointment.professional), joinedload(Appointment.location)).order_by(Appointment.appointment_time.asc()).all()
+    return render_template('meus_agendamentos_cliente.html', agendamentos=ags, salao_slug=salao_slug)
+
+
+@main.route('/<salao_slug>/cancelar/<int:agendamento_id>', methods=['POST'])
+def cancelar_agendamento_cliente(salao_slug, agendamento_id):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    cust_id = getattr(g, 'customer_id', None)
+    ag = Appointment.query.join(Professional).filter(
+        Appointment.id == agendamento_id,
+        Appointment.customer_id == cust_id,
+        Professional.admin_id == admin.id
+    ).first_or_404()
+    ag.ativo = False
+    db.session.commit()
+    flash('Agendamento cancelado.', 'success')
+    return redirect(url_for('main.meus_agendamentos_cliente', salao_slug=salao_slug))
