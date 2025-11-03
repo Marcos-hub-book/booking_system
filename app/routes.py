@@ -200,11 +200,51 @@ def dashboard_add_appointment():
     flash('Agendamento criado com sucesso!', 'success')
     return redirect(url_for('main.dashboard'))
 
-@main.route('/dashboard/profile', endpoint='dashboard_profile', methods=['GET'])
+@main.route('/dashboard/profile', endpoint='dashboard_profile', methods=['GET', 'POST'])
 @login_required
 def dashboard_profile():
     if current_user.role != 'admin':
         abort(403)
+    if request.method == 'POST':
+        # Atualiza dados básicos
+        company_name = (request.form.get('company_name') or '').strip()
+        full_name = (request.form.get('full_name') or '').strip()
+        phone = (request.form.get('phone') or '').strip()
+        changed = False
+        if company_name and company_name != current_user.company_name:
+            current_user.company_name = company_name
+            changed = True
+        if full_name and full_name != current_user.full_name:
+            current_user.full_name = full_name
+            changed = True
+        if phone and phone != current_user.phone:
+            current_user.phone = phone
+            changed = True
+        # Upload de foto de perfil
+        file = request.files.get('profile_photo')
+        if file and file.filename:
+            try:
+                filename = secure_filename(file.filename)
+                name, ext = os.path.splitext(filename)
+                safe_name = f"user_{current_user.id}{ext.lower()}"
+                upload_dir = current_app.config.get('UPLOAD_FOLDER')
+                os.makedirs(upload_dir, exist_ok=True)
+                save_path = os.path.join(upload_dir, safe_name)
+                file.save(save_path)
+                # Caminho relativo para static
+                rel_path = os.path.relpath(save_path, os.path.join(current_app.root_path, 'static'))
+                rel_path = rel_path.replace('\\', '/')
+                current_user.profile_photo = rel_path
+                changed = True
+            except Exception as e:
+                current_app.logger.exception('Falha ao salvar foto de perfil: %s', e)
+                flash('Não foi possível salvar a foto de perfil.', 'danger')
+        if changed:
+            db.session.commit()
+            flash('Perfil atualizado com sucesso.', 'success')
+        else:
+            flash('Nada para atualizar.', 'info')
+        return redirect(url_for('main.dashboard_profile'))
     return render_template('dashboard_profile.html')
 
 
@@ -275,6 +315,17 @@ def load_customer_from_cookie():
 @main.app_context_processor
 def inject_customer_name():
     return {'customer_name': getattr(g, 'customer_name', None)}
+
+@main.app_context_processor
+def inject_profile_photo_helper():
+    def profile_photo_url(path: str | None):
+        if not path:
+            return None
+        p = str(path).replace('\\', '/').lstrip('/')
+        if p.startswith('static/'):
+            p = p[len('static/'):]
+        return url_for('static', filename=p)
+    return {'profile_photo_url': profile_photo_url}
 
 # ==========================
 # Billing/Plans helpers

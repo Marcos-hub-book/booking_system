@@ -1,0 +1,253 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  background: #fff;
+  color: #333;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: #0077ff;
+}
+
+.nav-links a {
+  margin-left: 1.5rem;
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.nav-links a:hover {
+  color: #0077ff;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-primario {
+  background: #0077ff;
+  color: #fff;
+}
+
+.btn-primario:hover {
+  background: #005dcc;
+}
+
+.btn-secundario {
+  border: 2px solid #0077ff;
+  color: #0077ff;
+}
+
+.btn-secundario:hover {
+  background: #0077ff;
+  color: #fff;
+}
+
+.hero {
+  text-align: center;
+  padding: 6rem 2rem;
+  background: linear-gradient(135deg, #0077ff, #00bfff);
+  color: white;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.hero p {
+  font-size: 1.2rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.beneficios {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.beneficios h2 {
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: #333;
+}
+
+.cards {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.card {
+  background: #f9f9f9;
+  padding: 2rem;
+  border-radius: 10px;
+  width: 320px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #0077ff;
+}
+
+.depoimentos {
+  text-align: center;
+  padding: 5rem 2rem;
+  background: #f0f8ff;
+}
+
+.depoimentos h2 {
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+}
+
+.carrossel {
+  position: relative;
+  max-width: 700px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.depoimento {
+  display: none;
+  padding: 2rem;
+}
+
+.depoimento.ativo {
+  display: block;
+  animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.depoimento p {
+  font-style: italic;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.depoimento span {
+  font-weight: 600;
+  color: #0077ff;
+}
+
+.planos {
+  padding: 5rem 2rem;
+  text-align: center;
+}
+
+.planos h2 {
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+}
+
+.planos-container {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.plano {
+  background: #f9f9f9;
+  padding: 2.5rem;
+  border-radius: 10px;
+  width: 300px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.plano:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.plano.destaque {
+  border: 3px solid #0077ff;
+  transform: scale(1.05);
+}
+
+.plano h3 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+.preco {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #0077ff;
+  margin: 1rem 0;
+}
+
+.preco span {
+  font-size: 1rem;
+  font-weight: normal;
+  color: #666;
+}
+
+.plano ul {
+  list-style: none;
+  margin: 1.5rem 0;
+}
+
+.plano ul li {
+  margin-bottom: 0.8rem;
+}
+
+footer {
+  background: #0077ff;
+  color: white;
+  text-align: center;
+  padding: 2rem;
+  margin-top: 4rem;
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    display: none; /* Simple hiding for mobile, can be improved with a hamburger menu */
+  }
+  .planos-container, .cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+}

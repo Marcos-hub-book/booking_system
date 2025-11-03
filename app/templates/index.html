@@ -1,35 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <title>Online Scheduling System</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PorAqui — Agenda Online</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    {% extends "base.html" %}
-    {% block content %}
-    <div style="width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh;">
-        <h1 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 18px; color: #232323; text-align: center;">Bem-vindo ao Sistema de Agendamento Online</h1>
-        <p style="color: #7a7a7a; font-size: 1rem; margin-bottom: 32px; text-align: center;">
-            Agende horários em salões, clínicas e pequenos negócios de forma simples e rápida.
-        </p>
-        <div style="width: 100%; display: flex; flex-direction: column; gap: 14px;">
-            <a href="{{ url_for('main.login') }}"
-               style="background: #232323; color: #fff; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; letter-spacing: 0.01em; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04); transition: background 0.2s;">
-                Login
-            </a>
-            <a href="{{ url_for('main.register') }}"
-               style="background: #fff; color: #232323; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; border: 1px solid #e3e7eb; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); transition: border 0.2s;">
-                Registrar como Profissional
-            </a>
-            <a href="{{ url_for('main.schedule') }}"
-               style="background: #fff; color: #232323; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; border: 1px solid #e3e7eb; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); transition: border 0.2s;">
-                Agendar Horário
-            </a>
-        </div>
+  <header>
+    <nav class="navbar">
+      <div class="logo">PorAqui</div>
+      <div class="nav-links">
+        <a href="#planos">Planos</a>
+        <a href="#depoimentos">Depoimentos</a>
+        <a href="#contato">Contato</a>
+        <a href="{{ url_for('main.login') }}" class="btn btn-secundario">Acessar Painel</a>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primario">Teste Grátis</a>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <h1>Agende com praticidade.</h1>
+      <p>Confirmações automáticas, menos esquecimentos, mais clientes.</p>
     </div>
-    {% endblock %}
-    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+  </header>
+
+  <section class="beneficios">
+    <h2>Por que usar o PorAqui?</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>🔔 Lembretes automáticos</h3>
+        <p>Seu cliente recebe um lembrete para confirmar o agendamento.</p>
+      </div>
+      <div class="card">
+        <h3>💻 Fácil de usar</h3>
+        <p>Interface moderna, intuitiva e pensada para o seu dia a dia.</p>
+      </div>
+      <div class="card">
+        <h3>⚙️ Personalizável</h3>
+        <p>Adapte sua agenda e horários de acordo com seu negócio.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="depoimentos" class="depoimentos">
+    <h2>O que estão falando</h2>
+    <div class="carrossel">
+      <div class="depoimento ativo">
+        <p>“Aumentei meus agendamentos em 50% com o PorAqui!”</p>
+        <span>— Maria Silva</span>
+      </div>
+      <div class="depoimento">
+        <p>“Simples de usar e os clientes adoram os lembretes automáticos.”</p>
+        <span>— João Pereira</span>
+      </div>
+      <div class="depoimento">
+        <p>“Economizei tempo e reduzi faltas. Excelente ferramenta!”</p>
+        <span>— Ana Costa</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="planos" class="planos">
+    <h2>Escolha seu plano</h2>
+    <div class="planos-container">
+      <div class="plano">
+        <h3>Básico</h3>
+        <p class="preco">R$19,90<span>/mês</span></p>
+        <ul>
+          <li>1 profissional</li>
+          <li>Agenda e bloqueios</li>
+          <li>Serviços por local</li>
+        </ul>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primario">Escolher esse</a>
+      </div>
+
+      <div class="plano destaque">
+        <h3>Pro</h3>
+        <p class="preco">R$29,90<span>/mês</span></p>
+        <ul>
+          <li>Profissionais ilimitados</li>
+          <li>Serviços por profissional</li>
+          <li>Gestão multi-local</li>
+        </ul>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primario">Escolher esse</a>
+      </div>
+
+      <div class="plano">
+        <h3>Avançado</h3>
+        <p class="preco">R$49,90<span>/mês</span></p>
+        <ul>
+          <li>Tudo do Pro</li>
+          <li>Automação e relatórios</li>
+          <li>Suporte prioritário</li>
+        </ul>
+        <a href="{{ url_for('main.register') }}" class="btn btn-primario">Escolher esse</a>
+      </div>
+    </div>
+  </section>
+
+  <footer id="contato">
+    <p>© 2025 PorAqui — Agenda Online</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 </body>
 </html>
