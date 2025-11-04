@@ -1,5 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
+<div style="display: flex; align-items: center; margin-bottom: 32px;">
+    <a href="{{ back_url or url_for('main.salao_home', salao_slug=request.view_args['salao_slug']) }}" 
+        style="
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 2rem;
+            color: #232323;
+            text-decoration: none;
+            background: none;
+            border: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            z-index: 1000;
+        "
+        onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
+        onmouseout="this.style.background='transparent'; this.style.transform='none';">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6"/>
+        </svg>
+        <span style="position: absolute; left: -9999px;">Voltar</span>
+    </a>
+</div>
 <div style="width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh;">
     <h2 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 18px; color: #232323; text-align: center;">Confirme seu agendamento</h2>
     <div style="width: 100%; background: #fff; border-radius: 12px; border: 1px solid #e3e7eb; padding: 20px 16px; margin-bottom: 24px;">
@@ -14,9 +36,5 @@
             Confirmar Agendamento
         </button>
     </form>
-    <a href="{{ url_for('main.salao_home', salao_slug=request.view_args['salao_slug']) }}"
-       style="margin-top: 18px; color: #232323; text-decoration: underline; font-size: 1rem;">
-        Cancelar
-    </a>
 </div>
 {% endblock %}

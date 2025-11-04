@@ -1123,8 +1123,34 @@ def add_professional():
         if not name:
             flash('Nome do profissional é obrigatório.', 'danger')
             return redirect(url_for('main.add_professional'))
+        # Cria profissional
         prof = Professional(name=name, admin_id=current_user.id)
         db.session.add(prof)
+        db.session.flush()  # garante prof.id para criar horários
+
+        # Salva dias/horários de trabalho se enviados
+        try:
+            workdays = set(int(x) for x in request.form.getlist('workdays'))
+        except Exception:
+            workdays = set()
+        for i in workdays:
+            start_val = (request.form.get(f'start_{i}') or '').strip()
+            end_val = (request.form.get(f'end_{i}') or '').strip()
+            bstart_val = (request.form.get(f'break_start_{i}') or '').strip()
+            bend_val = (request.form.get(f'break_end_{i}') or '').strip()
+            if not (start_val and end_val):
+                # Ignora dias marcados sem início/fim
+                continue
+            try:
+                st = datetime.strptime(start_val, '%H:%M').time()
+                en = datetime.strptime(end_val, '%H:%M').time()
+                bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+            except Exception:
+                # Se algum horário for inválido, pula silenciosamente
+                continue
+            db.session.add(ProfessionalSchedule(professional_id=prof.id, weekday=i, start_time=st, end_time=en, break_start=bs, break_end=be))
+
         db.session.commit()
         flash('Profissional adicionado.', 'success')
         return redirect(url_for('main.professionals_list'))

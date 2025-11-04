@@ -37,6 +37,16 @@ body {
   color: #0077ff;
 }
 
+.hamb {
+  display: none;
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+
 .btn {
   padding: 0.6rem 1.2rem;
   border-radius: 6px;
@@ -231,18 +241,71 @@ body {
   margin-bottom: 0.8rem;
 }
 
+.contact-section {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #f9f9f9;
+}
+
+.contact-section h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.contact-section p {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  color: #666;
+}
+
+.btn-whatsapp {
+  background: #25D366;
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.3s;
+}
+
+.btn-whatsapp:hover {
+  background: #1EAE54;
+}
+
 footer {
   background: #0077ff;
   color: white;
   text-align: center;
   padding: 2rem;
-  margin-top: 4rem;
+  margin-top: 0; /* Adjusted from 4rem */
 }
 
 @media (max-width: 768px) {
   .nav-links {
-    display: none; /* Simple hiding for mobile, can be improved with a hamburger menu */
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    background-color: white;
+    position: absolute;
+    top: 60px; /* Adjust based on navbar height */
+    left: 0;
+    padding: 1rem 0;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   }
+
+  .nav-links.active {
+    display: flex;
+  }
+
+  .nav-links a {
+    margin: 1rem 0;
+    text-align: center;
+  }
+
+  .hamb {
+    display: block;
+  }
+
   .planos-container, .cards {
     flex-direction: column;
     align-items: center;

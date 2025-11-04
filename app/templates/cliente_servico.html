@@ -2,8 +2,26 @@
 {% block content %}
 <div style="width: 100%; max-width: 400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; padding: 12px 0 0;">
     <div style="height: 44px; width: 100%; position: relative; margin-bottom: 8px; padding-top: 8px;">
-        <a href="{{ back_url }}" aria-label="Voltar"
-           style="position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:999px; border:1px solid #e3e7eb; background:#fff; color:#232323; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 1px 4px rgba(0,0,0,0.04); font-size:18px;">&lt;</a>
+        <a href="{{ back_url }}" 
+            style="
+                position: absolute;
+                top: 8px;
+                left: 8px;
+                font-size: 2rem;
+                color: #232323;
+                text-decoration: none;
+                background: none;
+                border: none;
+                transition: transform 0.2s ease, opacity 0.2s ease;
+                z-index: 1000;
+            "
+            onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
+            onmouseout="this.style.background='transparent'; this.style.transform='none';">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            <span style="position: absolute; left: -9999px;">Voltar</span>
+        </a>
     </div>
 
     <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 16px; color: #232323; text-align: center; width: 100%;">Escolha o serviço</h3>

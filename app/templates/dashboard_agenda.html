@@ -68,7 +68,7 @@
       <a href="{{ url_for('main.services_list') }}" style="text-decoration:none;color:#232323;">Serviços</a>
       <a href="{{ url_for('main.billing') }}" style="text-decoration:none;color:#232323;">Plano e cobrança</a>
       {% if (current_user.plan or 'free')|lower != 'basic' %}
-        <a href="{{ url_for('main.add_professional') }}" style="text-decoration:none;color:#232323;">Adicionar profissional</a>
+        <a href="{{ url_for('main.professionals_list') }}" style="text-decoration:none;color:#232323;">Profissionais</a>
       {% endif %}
       {% if (current_user.plan or 'free')|lower == 'basic' %}
         <a href="{{ url_for('main.locations_list') }}" style="text-decoration:none;color:#232323;">Locais de atendimento</a>

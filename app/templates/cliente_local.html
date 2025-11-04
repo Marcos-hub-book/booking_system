@@ -1,28 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:520px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-direction:column;gap:12px;">
+<div style="width:100%;max-width:400px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-direction:column;gap:12px;">
   <div style="height:44px;width:100%;position:relative;margin-bottom:4px;padding-top:8px;">
-    <a href="{{ back_url }}" aria-label="Voltar"
-       style="position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:999px; border:1px solid #e3e7eb; background:#fff; color:#232323; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 1px 4px rgba(0,0,0,0.04); font-size:18px;">&lt;</a>
+    <a href="{{ back_url }}" 
+        style="
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-size: 2rem;
+            color: #232323;
+            text-decoration: none;
+            background: none;
+            border: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            z-index: 1000;
+        "
+        onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
+        onmouseout="this.style.background='transparent'; this.style.transform='none';">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6"/>
+        </svg>
+        <span style="position: absolute; left: -9999px;">Voltar</span>
+    </a>
   </div>
   <h2 style="font-weight:600;font-size:1.25rem;margin:0 0 4px; text-align:center;">Escolha o local de atendimento</h2>
-  <form id="form-local" method="POST" style="display:flex;flex-direction:column;gap:12px;">
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      {% for loc in locations %}
-      <button type="submit" name="location_id" value="{{ loc.id }}"
-        style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:14px;cursor:pointer;text-align:left;">
-        <div style="flex:1;display:flex;flex-direction:column;gap:4px;overflow:hidden;">
-          <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ loc.name }}</div>
-          {% if loc.schedules %}
-          <div style="color:#6b7280;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;">Disponibilidade configurada</div>
-          {% else %}
-          <div style="color:#6b7280;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;">Sem horários definidos</div>
-          {% endif %}
-        </div>
-        <span style="color:#9aa1a9;font-size:1.25rem;">›</span>
-      </button>
-      {% endfor %}
-    </div>
+  <form id="form-local" method="POST" style="width: 100%; display: flex; flex-direction: column; gap: 16px;">
+    {% for loc in locations %}
+    <button type="submit" name="location_id" value="{{ loc.id }}"
+        style="width: 80%; align-self: center; background: #fff; border: 1px solid #e3e7eb; border-radius: 14px; padding: 18px; display: flex; align-items: center; justify-content: flex-start; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03); font-size: 1.05rem; color: #232323; margin: 0; cursor: pointer; transition: border 0.2s; font-weight: 500;">
+        {{ loc.name }}
+    </button>
+    {% endfor %}
   </form>
 </div>
 {% endblock %}
