@@ -96,11 +96,94 @@ def platform_account_trial_extend(user_id):
         flash(f'Trial estendido em {days} dias.', 'success')
     return redirect(url_for('main.platform_accounts'))
 
+@main.route('/platform/accounts/<int:user_id>/trial/reset', methods=['POST'])
+def platform_account_trial_reset(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    # Zera os marcadores de trial deste usuário (não altera outros CPFs)
+    user.trial_started_at = None
+    user.trial_ends_at = None
+    user.trial_consumed = False
+    # Opcional: deixar status como None para não indicar trial ativo
+    if (user.subscription_status or '').lower() == 'trial':
+        user.subscription_status = None
+    db.session.commit()
+    flash('Trial do usuário foi resetado. Ele poderá iniciar novamente.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/grant', methods=['POST'])
+def platform_account_trial_grant(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    # Concede/força trial independentemente de flags anteriores
+    days = request.form.get('days', type=int) or 30
+    now = datetime.now()
+    user.plan = user.plan or 'basic'
+    user.subscription_status = 'trial'
+    user.trial_started_at = now
+    user.trial_ends_at = now + timedelta(days=days)
+    user.trial_consumed = True
+    db.session.commit()
+    flash(f'Trial concedido por {days} dias.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/plan/update', methods=['POST'])
+def platform_account_plan_update(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    plan = (request.form.get('plan') or '').lower()
+    if plan not in ('free','basic','pro','advanced','avancado'):
+        flash('Plano inválido.', 'danger')
+        return redirect(url_for('main.platform_accounts'))
+    user.plan = 'advanced' if plan in ('advanced','avancado') else plan
+    db.session.commit()
+    flash('Plano atualizado manualmente.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/activate/manual', methods=['POST'])
+def platform_account_activate_manual(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    plan = (request.form.get('plan') or user.plan or 'basic').lower()
+    days = request.form.get('days', type=int) or 30
+    # Ativa assinatura manualmente
+    user.plan = 'advanced' if plan in ('advanced','avancado') else plan
+    user.subscription_status = 'active'
+    user.subscription_provider = 'manual'
+    user.subscription_id = f"manual-{user.id}-{int(datetime.utcnow().timestamp())}"
+    user.current_period_end_at = datetime.now() + timedelta(days=days)
+    db.session.commit()
+    flash(f'Assinatura ativada manualmente ({user.plan.upper()}) por {days} dias.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/status/set', methods=['POST'])
+def platform_account_status_set(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    status = (request.form.get('status') or '').lower().strip()
+    allowed = {'active','canceled','cancelled','expired','trial','none','inactive'}
+    if status not in allowed:
+        flash('Status inválido.', 'danger')
+        return redirect(url_for('main.platform_accounts'))
+    if status in ('none','inactive',''):
+        user.subscription_status = None
+    elif status in ('canceled','cancelled'):
+        user.subscription_status = 'canceled'
+    else:
+        user.subscription_status = status
+    # Nota: não alteramos plan aqui; use a ação específica para isso
+    db.session.commit()
+    flash('Status de assinatura atualizado manualmente.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
 @main.route('/dashboard/add_event', endpoint='dashboard_add_event', methods=['POST'])
 @login_required
 def dashboard_add_event():
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     # Bloqueio simples como um Appointment sem service/customer
     professional_id = request.form.get('professional_id', type=int)
     date_str = request.form.get('data')
@@ -141,6 +224,9 @@ def dashboard_add_event():
 def dashboard_add_appointment():
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     # Coleta dados do formulário
 
     customer_name = request.form.get('customer_name')
@@ -355,6 +441,32 @@ def _hash_cpf(cpf_digits: str) -> str:
 
 def is_advanced(user: User) -> bool:
     return (user.plan or 'free').lower() in ('advanced','avancado')
+
+# ==========================
+# Assinatura: estado e restrições
+# ==========================
+
+def _is_account_in_good_standing(user: User) -> bool:
+    """Conta apta para uso/link público: ativa ou em trial não expirado."""
+    status = (user.subscription_status or '').lower()
+    if status == 'active':
+        return True
+    if status == 'trial':
+        if user.trial_ends_at:
+            return user.trial_ends_at.date() >= datetime.today().date()
+        return True
+    return False
+
+def _require_account_active_for_modifications():
+    """Bloqueia ações de escrita quando conta está inativa/expirada."""
+    if not _is_account_in_good_standing(current_user):
+        flash('Sua conta está inativa ou com o plano expirado. Assine para continuar usando.', 'warning')
+        return redirect(url_for('main.billing_expired'))
+    return None
+
+def _public_link_allowed(admin: User) -> bool:
+    """Se o link público do salão deve responder."""
+    return _is_account_in_good_standing(admin)
 
 # ==========================
 # Helpers de Plano (Free/Basic/Pro)
@@ -1045,6 +1157,9 @@ def services_list():
 def edit_service(service_id):
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     service = Service.query.filter_by(id=service_id, admin_id=current_user.id).first_or_404()
     pros = Professional.query.filter_by(admin_id=current_user.id).all()
     locs = Location.query.filter_by(admin_id=current_user.id).all()
@@ -1098,6 +1213,9 @@ def locations_list():
 def edit_location(location_id):
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     loc = Location.query.filter_by(id=location_id, admin_id=current_user.id).first_or_404()
     # Adiciona os horários do local para o template
     horarios = {h.weekday: h for h in LocationSchedule.query.filter_by(location_id=loc.id).all()}
@@ -1118,11 +1236,25 @@ def edit_location(location_id):
 def add_professional():
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     if request.method == 'POST':
         name = (request.form.get('name') or '').strip()
         if not name:
             flash('Nome do profissional é obrigatório.', 'danger')
             return redirect(url_for('main.add_professional'))
+        # Limites por plano: PRO=2, ADVANCED=5
+        limit = None
+        if is_pro(current_user):
+            limit = 2
+        elif is_advanced(current_user):
+            limit = 5
+        if limit is not None:
+            count = Professional.query.filter_by(admin_id=current_user.id).count()
+            if count >= limit:
+                flash(f'Limite de profissionais do seu plano atingido ({limit}). Atualize seu plano para adicionar mais.', 'warning')
+                return redirect(url_for('main.professionals_list'))
         # Cria profissional
         prof = Professional(name=name, admin_id=current_user.id)
         db.session.add(prof)
@@ -1162,6 +1294,9 @@ def add_professional():
 def add_service():
     if current_user.role != 'admin':
         abort(403)
+    redir = _require_account_active_for_modifications()
+    if redir:
+        return redir
     pros = Professional.query.filter_by(admin_id=current_user.id).all()
     locs = Location.query.filter_by(admin_id=current_user.id).all()
     if request.method == 'POST':
@@ -1248,14 +1383,28 @@ def _apply_preapproval_to_user(user: User, preapproval_data: dict) -> None:
     auto_rec = preapproval_data.get('auto_recurring') or {}
     next_payment_date = auto_rec.get('next_payment_date')
     # Map MP status to our status
+    # IMPORTANT: Do not downgrade or set to 'pending' during checkout; only update on effective states
     if status in ('authorized', 'active', 'approved'):
         user.subscription_status = 'active'
+        # Update user's plan based on preapproval reason if available (ensures plan changes only after activation)
+        reason = (preapproval_data.get('reason') or '').lower()
+        # Expected: "Assinatura Plano Basic/Pro/Advanced"
+        if 'advanced' in reason or 'avançado' in reason or 'avancado' in reason:
+            user.plan = 'advanced'
+        elif 'pro' in reason:
+            user.plan = 'pro'
+        elif 'basic' in reason or 'básico' in reason or 'basico' in reason:
+            user.plan = 'basic'
+        # else: keep current plan (e.g., trial) if reason not parseable
     elif status in ('paused', 'cancelled', 'canceled'):
         user.subscription_status = 'canceled'
+        # Optional: keep current plan until cancel flow sets to free; avoid surprising downgrades here
     elif status in ('expired',):
         user.subscription_status = 'expired'
+        # Do not change plan automatically here
     else:
-        user.subscription_status = status or 'pending'
+        # Unknown/transient status (e.g., pending): do not alter current subscription_status
+        pass
     # Persist provider/id just in case
     user.subscription_provider = 'mercadopago'
     if preapproval_data.get('id'):
@@ -1306,8 +1455,7 @@ def subscriptions_create():
 
         current_user.subscription_provider = 'mercadopago'
         current_user.subscription_id = preapproval.get('id')
-        current_user.subscription_status = 'pending'
-        current_user.plan = plan_key
+        # Do NOT change subscription_status/plan here; keep access as-is until confirmation
         db.session.commit()
 
         return redirect(init_point)
@@ -1455,12 +1603,16 @@ def _require_customer_auth(salao_slug):
 @main.route('/<salao_slug>')
 def salao_home(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     return render_template('salao_home.html', admin=admin)
 
 
 @main.route('/<salao_slug>/opcoes')
 def cliente_opcoes(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     # exige autenticação de cliente
     redir = _require_customer_auth(salao_slug)
     if redir:
@@ -1472,6 +1624,8 @@ def cliente_opcoes(salao_slug):
 @main.route('/<salao_slug>/local', methods=['GET', 'POST'])
 def salao_local(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1486,6 +1640,8 @@ def salao_local(salao_slug):
 @main.route('/<salao_slug>/servico', methods=['GET', 'POST'])
 def salao_servico(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1505,6 +1661,8 @@ def salao_servico(salao_slug):
 @main.route('/<salao_slug>/profissional', methods=['GET', 'POST'], endpoint='cliente_profissional')
 def cliente_profissional_route(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1529,6 +1687,8 @@ def cliente_profissional_route(salao_slug):
 @main.route('/<salao_slug>/periodo', methods=['GET', 'POST'])
 def cliente_periodo(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1557,6 +1717,8 @@ def _period_range(period: str):
 @main.route('/<salao_slug>/data', methods=['GET', 'POST'])
 def cliente_data(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1598,6 +1760,8 @@ def cliente_data(salao_slug):
 @main.route('/<salao_slug>/horario', methods=['GET', 'POST'])
 def cliente_horario(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1632,6 +1796,8 @@ def cliente_horario(salao_slug):
 @main.route('/<salao_slug>/confirmar', methods=['GET', 'POST'])
 def confirmar_agendamento(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1667,6 +1833,8 @@ def confirmar_agendamento(salao_slug):
 @main.route('/<salao_slug>/meus-agendamentos')
 def meus_agendamentos_cliente(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
@@ -1685,6 +1853,8 @@ def meus_agendamentos_cliente(salao_slug):
 @main.route('/<salao_slug>/cancelar/<int:agendamento_id>', methods=['POST'])
 def cancelar_agendamento_cliente(salao_slug, agendamento_id):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir

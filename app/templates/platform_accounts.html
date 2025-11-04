@@ -11,6 +11,7 @@
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Trial até</th>
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Próx. período</th>
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Ações (Trial)</th>
+        <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Plano/Status</th>
       </tr>
     </thead>
     <tbody>
@@ -36,6 +37,45 @@
               <button type="submit" style="background:#fff;color:#065f46;border:1px solid #a7f3d0;border-radius:8px;padding:6px 10px;">+ dias</button>
             </form>
             {% endif %}
+            <form method="post" action="{{ url_for('main.platform_account_trial_reset', user_id=u.id) }}">
+              <button type="submit" style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;">Resetar trial</button>
+            </form>
+            <form method="post" action="{{ url_for('main.platform_account_trial_grant', user_id=u.id) }}" style="display:inline-flex;gap:6px;align-items:center;">
+              <input type="number" name="days" value="30" min="1" max="90" style="width:60px;padding:6px;border:1px solid #e5e7eb;border-radius:8px;">
+              <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:6px 10px;">Conceder trial</button>
+            </form>
+          </div>
+        </td>
+        <td style="padding:10px;border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <form method="post" action="{{ url_for('main.platform_account_plan_update', user_id=u.id) }}" style="display:flex;gap:6px;align-items:center;">
+              <select name="plan" style="padding:6px;border:1px solid #e5e7eb;border-radius:8px;">
+                <option value="free" {% if (u.plan or 'free')=='free' %}selected{% endif %}>FREE</option>
+                <option value="basic" {% if (u.plan or '').lower()=='basic' %}selected{% endif %}>BASIC</option>
+                <option value="pro" {% if (u.plan or '').lower()=='pro' %}selected{% endif %}>PRO</option>
+                <option value="advanced" {% if (u.plan or '').lower() in ['advanced','avancado'] %}selected{% endif %}>ADVANCED</option>
+              </select>
+              <button type="submit" style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;">Atualizar plano</button>
+            </form>
+            <form method="post" action="{{ url_for('main.platform_account_activate_manual', user_id=u.id) }}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <select name="plan" style="padding:6px;border:1px solid #e5e7eb;border-radius:8px;">
+                <option value="basic">BASIC</option>
+                <option value="pro">PRO</option>
+                <option value="advanced">ADVANCED</option>
+              </select>
+              <input type="number" name="days" value="30" min="1" max="365" style="width:80px;padding:6px;border:1px solid #e5e7eb;border-radius:8px;">
+              <button type="submit" style="background:#065f46;color:#fff;border:none;border-radius:8px;padding:6px 10px;">Ativar manual</button>
+            </form>
+            <form method="post" action="{{ url_for('main.platform_account_status_set', user_id=u.id) }}" style="display:flex;gap:6px;align-items:center;">
+              <select name="status" style="padding:6px;border:1px solid #e5e7eb;border-radius:8px;">
+                <option value="active" {% if (u.subscription_status or '')=='active' %}selected{% endif %}>ACTIVE</option>
+                <option value="trial" {% if (u.subscription_status or '')=='trial' %}selected{% endif %}>TRIAL</option>
+                <option value="canceled" {% if (u.subscription_status or '')=='canceled' %}selected{% endif %}>CANCELED</option>
+                <option value="expired" {% if (u.subscription_status or '')=='expired' %}selected{% endif %}>EXPIRED</option>
+                <option value="none" {% if not u.subscription_status %}selected{% endif %}>NONE</option>
+              </select>
+              <button type="submit" style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;">Definir status</button>
+            </form>
           </div>
         </td>
       </tr>
