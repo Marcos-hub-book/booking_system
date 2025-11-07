@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
-from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional
+from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location
 from .models import Location
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, or_
@@ -57,6 +57,128 @@ def platform_accounts():
     return render_template('platform_accounts.html', users=users)
 
 # Ações de trial: iniciar, expirar, estender
+@main.route('/platform/accounts/<int:user_id>/trial/start', methods=['POST'])
+def platform_account_trial_start(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    if user.trial_consumed:
+        flash('Usuário já consumiu o trial.', 'warning')
+        return redirect(url_for('main.platform_accounts'))
+    now = datetime.now()
+    user.subscription_status = 'trial'
+    user.trial_started_at = now
+    user.trial_ends_at = now + timedelta(days=30)
+    user.trial_consumed = True
+    db.session.commit()
+    flash('Trial iniciado por 30 dias.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/expire', methods=['POST'])
+def platform_account_trial_expire(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    if user.subscription_status == 'trial':
+        user.subscription_status = 'expired'
+        user.trial_ends_at = datetime.now()
+        db.session.commit()
+        flash('Trial expirado imediatamente.', 'success')
+    else:
+        flash('Usuário não está em trial.', 'warning')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/extend', methods=['POST'])
+def platform_account_trial_extend(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    days = request.form.get('days', type=int) or 7
+    if user.subscription_status == 'trial' and user.trial_ends_at:
+        user.trial_ends_at += timedelta(days=days)
+        db.session.commit()
+        flash(f'Trial estendido em {days} dias.', 'success')
+    else:
+        flash('Usuário não está em trial ou trial não iniciado.', 'warning')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/reset', methods=['POST'])
+def platform_account_trial_reset(user_id):
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    user.trial_started_at = None
+    user.trial_ends_at = None
+    user.trial_consumed = False
+    user.subscription_status = None
+    db.session.commit()
+    flash('Trial resetado. Usuário pode iniciar novo trial.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/trial/grant', methods=['POST'])
+def platform_account_trial_grant(user_id):
+    """Concede (ou reconcede) um trial por N dias, ignorando flags anteriores."""
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    days = request.form.get('days', type=int) or 30
+    now = datetime.now()
+    user.subscription_status = 'trial'
+    user.trial_started_at = now
+    user.trial_ends_at = now + timedelta(days=days)
+    user.trial_consumed = True  # Mantém consumido para lógica normal, mas concedido manualmente
+    db.session.commit()
+    flash(f'Trial concedido por {days} dias.', 'success')
+    return redirect(url_for('main.platform_accounts'))
+
+@main.route('/platform/accounts/<int:user_id>/delete', methods=['POST'])
+def platform_account_delete(user_id):
+    """Exclui a conta do admin e todos os recursos vinculados (profissionais, agendamentos, serviços, locais).
+    Clientes vinculados: se ficarem sem outros admins, serão excluídos também.
+    """
+    _platform_admin_required()
+    user = User.query.get_or_404(user_id)
+    if user.role != 'admin':
+        flash('Apenas contas admin podem ser removidas por esta ação.', 'danger')
+        return redirect(url_for('main.platform_accounts'))
+    try:
+        # Profissionais e seus horários / agendamentos
+        professionals = Professional.query.filter_by(admin_id=user.id).all()
+        prof_ids = [p.id for p in professionals]
+        if prof_ids:
+            # Agendamentos
+            Appointment.query.filter(Appointment.professional_id.in_(prof_ids)).delete(synchronize_session=False)
+            # Horários de profissionais
+            ProfessionalSchedule.query.filter(ProfessionalSchedule.professional_id.in_(prof_ids)).delete(synchronize_session=False)
+        # Serviços (e tabelas de associação service_professional, service_location)
+        services = Service.query.filter_by(admin_id=user.id).all()
+        service_ids = [s.id for s in services]
+        if service_ids:
+            # Remove associações explícitas
+            db.session.execute(service_professional.delete().where(service_professional.c.service_id.in_(service_ids)))
+            db.session.execute(service_location.delete().where(service_location.c.service_id.in_(service_ids)))
+            Service.query.filter(Service.id.in_(service_ids)).delete(synchronize_session=False)
+        # Locais e horários de locais
+        locations = Location.query.filter_by(admin_id=user.id).all()
+        loc_ids = [l.id for l in locations]
+        if loc_ids:
+            LocationSchedule.query.filter(LocationSchedule.location_id.in_(loc_ids)).delete(synchronize_session=False)
+            Location.query.filter(Location.id.in_(loc_ids)).delete(synchronize_session=False)
+        # Desvincula clientes e remove órfãos
+        customers = Customer.query.join(Customer.admins).filter(User.id == user.id).all()
+        for c in customers:
+            if user in c.admins:
+                c.admins.remove(user)
+        db.session.flush()
+        # Exclui clientes que ficaram sem admins
+        orphan_customers = [c for c in customers if len(c.admins) == 0]
+        for oc in orphan_customers:
+            Appointment.query.filter_by(customer_id=oc.id).delete(synchronize_session=False)
+            db.session.delete(oc)
+        # Finalmente remove o usuário
+        db.session.delete(user)
+        db.session.commit()
+        flash('Conta e recursos associados excluídos com sucesso.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception('Erro ao excluir conta: %s', e)
+        flash('Falha ao excluir conta. Verifique logs.', 'danger')
+    return redirect(url_for('main.platform_accounts'))
 def _platform_admin_required():
     if not _platform_admin_authenticated():
         abort(403)

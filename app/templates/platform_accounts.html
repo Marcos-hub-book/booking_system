@@ -12,6 +12,7 @@
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Próx. período</th>
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Ações (Trial)</th>
         <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Plano/Status</th>
+  <th style="padding:10px;border-bottom:1px solid #e5e7eb;">Admin</th>
       </tr>
     </thead>
     <tbody>
@@ -77,6 +78,11 @@
               <button type="submit" style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;">Definir status</button>
             </form>
           </div>
+        </td>
+        <td style="padding:10px;border-bottom:1px solid #f1f5f9;">
+          <form method="post" action="{{ url_for('main.platform_account_delete', user_id=u.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir esta conta e todos os dados vinculados? Esta ação não pode ser desfeita.');">
+            <button type="submit" style="background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;">Excluir conta</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
