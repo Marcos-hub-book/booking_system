@@ -20,7 +20,8 @@ class RegistrationForm(FlaskForm):
     cidade = StringField('Cidade', validators=[Length(max=64)])
     estado = StringField('Estado', validators=[Length(max=2)])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    cpf = StringField('CPF', validators=[DataRequired(), Regexp(r'^\d{11}$', message='CPF deve conter 11 dígitos (somente números).')])
+    # Validação detalhada do CPF é realizada na rota; aqui aceitamos qualquer formato (máscara) e exigimos preenchimento
+    cpf = StringField('CPF', validators=[DataRequired()])
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmar senha', validators=[DataRequired(), EqualTo('password')])
     profile_photo = FileField('Foto de perfil', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Somente imagens são permitidas.')])

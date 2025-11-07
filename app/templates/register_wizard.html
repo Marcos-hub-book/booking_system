@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}Cadastro Profissional{% endblock %}
+{% block content %}
+<div id="register-wizard" style="max-width:640px;margin:0 auto;padding:12px 8px 32px;display:flex;flex-direction:column;gap:24px;">
+  <!-- Logo -->
+  <div style="text-align:center;padding:12px 0;">
+    <div style="font-size:2rem;font-weight:700;font-family:'Poppins',sans-serif;letter-spacing:0.5px;">PorAqui</div>
+    <div style="margin-top:4px;font-size:0.9rem;color:#6b7280;font-weight:500;">Cadastro em etapas</div>
+  </div>
+  <!-- Progress bar -->
+  <div style="width:100%;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+    <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .35s ease;"></div>
+  </div>
+  <!-- Steps container -->
+  <form id="wizard-form" method="POST" action="{{ url_for('main.register') }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:28px;">
+    {{ form.hidden_tag() }}
+    <input type="hidden" id="full_name" name="full_name" value="">
+
+    <!-- Step 1: Dados básicos -->
+    <section class="wizard-step" data-step="1" style="display:block;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Seus dados básicos</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label class="fw-label">Nome</label>
+          <input type="text" id="first_name" class="fw-input" placeholder="Seu primeiro nome" required>
+        </div>
+        <div>
+          <label class="fw-label">Sobrenome</label>
+          <input type="text" id="last_name" class="fw-input" placeholder="Seu sobrenome" required>
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">CPF</label>
+          {{ form.cpf(class='fw-input', placeholder='___.___.___-__', maxlength='14') }}
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Email</label>
+          {{ form.email(class='fw-input', placeholder='voce@exemplo.com') }}
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Celular</label>
+          {{ form.phone(class='fw-input', placeholder='(11) 91234-5678', maxlength='15') }}
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Perfil e identidade pública -->
+    <section class="wizard-step" data-step="2" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Identidade pública</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Foto de perfil</label>
+          {{ form.profile_photo(class='fw-input') }}
+          <small style="color:#6b7280;display:block;margin-top:4px;">Formatos: JPG, PNG, WEBP.</small>
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Usuário (link do seu salão)</label>
+          {{ form.username(class='fw-input', placeholder='ex: beleza_ana', autocomplete='off') }}
+          <small id="username-feedback" style="display:block;margin-top:4px;font-size:0.75rem;color:#6b7280;">Ex: poraqui.online/<span id="slug-preview">seu_usuario</span></small>
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Nome do salão / clínica</label>
+          {{ form.company_name(class='fw-input', placeholder='Ex: Studio Ana Brilho') }}
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3: Endereço -->
+    <section class="wizard-step" data-step="3" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Endereço</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label class="fw-label">CEP</label>
+          {{ form.cep(class='fw-input', placeholder='00000-000', maxlength='9') }}
+        </div>
+        <div>
+          <label class="fw-label">Número</label>
+          {{ form.numero(class='fw-input', placeholder='123') }}
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Logradouro</label>
+          {{ form.logradouro(class='fw-input', placeholder='Rua, avenida...') }}
+        </div>
+        <div>
+          <label class="fw-label">Cidade</label>
+          {{ form.cidade(class='fw-input', placeholder='Cidade') }}
+        </div>
+        <div>
+          <label class="fw-label">Estado (UF)</label>
+          {{ form.estado(class='fw-input', placeholder='SP', maxlength='2') }}
+        </div>
+      </div>
+      <small style="color:#6b7280;">Se o CEP for válido, tentaremos preencher os campos automaticamente.</small>
+    </section>
+
+    <!-- Step 4: Segurança -->
+    <section class="wizard-step" data-step="4" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Segurança da conta</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Senha</label>
+          {{ form.password(class='fw-input', placeholder='Mínimo 6 caracteres') }}
+        </div>
+        <div style="grid-column:1/3;">
+          <label class="fw-label">Confirmar senha</label>
+          {{ form.confirm_password(class='fw-input', placeholder='Repita a senha') }}
+        </div>
+      </div>
+      <small style="color:#6b7280;">Use uma senha forte. Evite reutilizar senhas de outros serviços.</small>
+    </section>
+
+    <!-- Navigation Buttons -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <button type="button" id="btn-prev" class="fw-btn" disabled>Voltar</button>
+      <button type="button" id="btn-next" class="fw-btn fw-btn-primary">Avançar</button>
+      <button type="submit" id="btn-submit" class="fw-btn fw-btn-primary" style="display:none;">Concluir Cadastro</button>
+    </div>
+  </form>
+  <div style="text-align:center;font-size:0.85rem;color:#6b7280;margin-top:8px;">Já tem uma conta? <a href="{{ url_for('main.login') }}" style="color:#6366f1;text-decoration:none;">Entrar</a></div>
+</div>
+<style>
+  .fw-label{font-size:.80rem;font-weight:600;display:block;margin-bottom:4px;color:#374151;}
+  .fw-input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;font-size:.9rem;transition:border-color .15s, box-shadow .15s;}
+  .fw-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.15);}
+  .fw-btn{background:#fff;color:#374151;border:1px solid #d1d5db;padding:10px 18px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+  .fw-btn[disabled]{opacity:.5;cursor:not-allowed;}
+  .fw-btn:hover:not([disabled]){background:#f3f4f6;}
+  .fw-btn-primary{background:#6366f1;color:#fff;border:none;}
+  .fw-btn-primary:hover{background:#4f46e5;}
+  .wizard-step{animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);} }
+</style>
+<script>
+(function(){
+  const steps = Array.from(document.querySelectorAll('.wizard-step'));
+  let current = 0;
+  const progress = document.getElementById('progress-bar');
+  const prevBtn = document.getElementById('btn-prev');
+  const nextBtn = document.getElementById('btn-next');
+  const submitBtn = document.getElementById('btn-submit');
+  const usernameInput = document.getElementById('username');
+  const slugPreview = document.getElementById('slug-preview');
+  const usernameFeedback = document.getElementById('username-feedback');
+  const cpfInput = document.getElementById('cpf');
+  const phoneInput = document.getElementById('phone');
+  const cepInput = document.getElementById('cep');
+
+  function updateProgress(){
+    const pct = ((current) / (steps.length - 1)) * 100;
+    progress.style.width = pct + '%';
+  }
+  function showStep(i){
+    steps.forEach((s,idx)=>{ s.style.display = idx===i ? 'block':'none'; });
+    current = i;
+    prevBtn.disabled = i === 0;
+    nextBtn.style.display = i < steps.length - 1 ? 'inline-block' : 'none';
+    submitBtn.style.display = i === steps.length - 1 ? 'inline-block' : 'none';
+    updateProgress();
+  }
+  nextBtn.addEventListener('click', ()=>{
+    if(!validateStep(current)) return;
+    if(current < steps.length - 1) showStep(current+1);
+  });
+  prevBtn.addEventListener('click', ()=>{
+    if(current>0) showStep(current-1);
+  });
+
+  function validateStep(i){
+    if(i===0){
+      // Basic required fields
+      const first = document.getElementById('first_name');
+      const last = document.getElementById('last_name');
+      if(!first.value.trim() || !last.value.trim()){ alert('Preencha nome e sobrenome.'); return false; }
+      // Merge into full_name hidden field of WTForms
+      const fullNameField = document.getElementById('full_name');
+      if(fullNameField){ fullNameField.value = (first.value.trim() + ' ' + last.value.trim()).trim(); }
+      // Simple CPF numeric check length 11
+      const rawCpf = cpfInput.value.replace(/\D+/g,'');
+      if(rawCpf.length !== 11){ alert('CPF deve conter 11 dígitos.'); return false; }
+      cpfInput.value = rawCpf; // normalized for backend
+      // Phone normalization
+      const phoneDigits = phoneInput.value.replace(/\D+/g,'');
+      if(phoneDigits.length < 10){ alert('Telefone inválido.'); return false; }
+      phoneInput.value = formatPhone(phoneDigits);
+    }
+    if(i===1){
+      // Username availability
+      if(usernameInput){
+        const val = usernameInput.value.trim();
+        if(val.length < 3){ alert('Usuário muito curto.'); return false; }
+      }
+    }
+    if(i===3){
+      // Password match
+      const pwd = document.getElementById('password');
+      const confirm = document.getElementById('confirm_password');
+      if(!pwd.value || pwd.value.length < 6){ alert('Senha muito curta.'); return false; }
+      if(pwd.value !== confirm.value){ alert('Senhas não coincidem.'); return false; }
+    }
+    return true;
+  }
+
+  function formatPhone(d){
+    if(d.length===11){
+      return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+    } else if(d.length===10){
+      return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+    }
+    return d;
+  }
+
+  // Username live preview & availability check
+  if(usernameInput){
+    let debounceTimer;
+    usernameInput.addEventListener('input', ()=>{
+      const val = usernameInput.value.trim();
+      slugPreview.textContent = val || 'seu_usuario';
+      clearTimeout(debounceTimer);
+      if(val.length < 3){
+        usernameFeedback.style.color = '#6b7280';
+        usernameFeedback.textContent = 'Mínimo 3 caracteres';
+        return;
+      }
+      usernameFeedback.textContent = 'Checando disponibilidade...';
+      usernameFeedback.style.color = '#6b7280';
+      debounceTimer = setTimeout(async ()=>{
+        try{
+          const resp = await fetch(`/api/username_available?username=${encodeURIComponent(val)}`);
+          const data = await resp.json();
+          if(data.available){
+            usernameFeedback.textContent = `Disponível! poraqui.online/${val}`;
+            usernameFeedback.style.color = '#059669';
+          }else{
+            usernameFeedback.textContent = 'Já em uso, tente outro';
+            usernameFeedback.style.color = '#b91c1c';
+          }
+        }catch(e){
+          usernameFeedback.textContent = 'Erro ao checar';
+          usernameFeedback.style.color = '#b91c1c';
+        }
+      }, 400);
+    });
+  }
+
+  // CEP auto-fill (Brasil via ViaCEP)
+  if(cepInput){
+    cepInput.addEventListener('blur', async ()=>{
+      const raw = cepInput.value.replace(/\D+/g,'');
+      if(raw.length !== 8) return;
+      try{
+        const resp = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
+        const data = await resp.json();
+        if(!data.erro){
+          const logField = document.getElementById('logradouro');
+          const cityField = document.getElementById('cidade');
+          const ufField = document.getElementById('estado');
+          if(logField && !logField.value) logField.value = data.logradouro || '';
+          if(cityField && !cityField.value) cityField.value = data.localidade || '';
+          if(ufField && !ufField.value) ufField.value = (data.uf || '').substr(0,2);
+        }
+      }catch(e){ /* silencioso */ }
+    });
+  }
+
+  showStep(0);
+})();
+</script>
+{% endblock %}
