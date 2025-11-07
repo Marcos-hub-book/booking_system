@@ -5,6 +5,7 @@ from .models import User, Professional, Service, Appointment, Customer, Professi
 from .models import Location
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from .forms import LoginForm, RegistrationForm, AppointmentForm
 from sqlalchemy.orm import joinedload
 from decimal import Decimal
@@ -59,73 +60,7 @@ def platform_accounts():
 def _platform_admin_required():
     if not _platform_admin_authenticated():
         abort(403)
-
-@main.route('/platform/accounts/<int:user_id>/trial/start', methods=['POST'])
-def platform_account_trial_start(user_id):
-    _platform_admin_required()
-    user = User.query.get_or_404(user_id)
-    if not user.trial_started_at:
-        now = datetime.now()
-        user.trial_started_at = now
-        user.trial_ends_at = now + timedelta(days=30)
-        user.trial_consumed = True
-        user.subscription_status = 'trial'
-        db.session.commit()
-        flash('Trial iniciado para o usuário.', 'success')
-    return redirect(url_for('main.platform_accounts'))
-
-@main.route('/platform/accounts/<int:user_id>/trial/expire', methods=['POST'])
-def platform_account_trial_expire(user_id):
-    _platform_admin_required()
-    user = User.query.get_or_404(user_id)
-    if user.trial_ends_at and user.subscription_status == 'trial':
-        user.trial_ends_at = datetime.now()
-        user.subscription_status = 'expired'
-        db.session.commit()
-        flash('Trial expirado para o usuário.', 'success')
-    return redirect(url_for('main.platform_accounts'))
-
-@main.route('/platform/accounts/<int:user_id>/trial/extend', methods=['POST'])
-def platform_account_trial_extend(user_id):
-    _platform_admin_required()
-    user = User.query.get_or_404(user_id)
-    days = request.form.get('days', type=int)
-    if user.trial_ends_at and days and days > 0:
-        user.trial_ends_at += timedelta(days=days)
-        db.session.commit()
-        flash(f'Trial estendido em {days} dias.', 'success')
-    return redirect(url_for('main.platform_accounts'))
-
-@main.route('/platform/accounts/<int:user_id>/trial/reset', methods=['POST'])
-def platform_account_trial_reset(user_id):
-    _platform_admin_required()
-    user = User.query.get_or_404(user_id)
-    # Zera os marcadores de trial deste usuário (não altera outros CPFs)
-    user.trial_started_at = None
-    user.trial_ends_at = None
-    user.trial_consumed = False
-    # Opcional: deixar status como None para não indicar trial ativo
-    if (user.subscription_status or '').lower() == 'trial':
-        user.subscription_status = None
-    db.session.commit()
-    flash('Trial do usuário foi resetado. Ele poderá iniciar novamente.', 'success')
-    return redirect(url_for('main.platform_accounts'))
-
-@main.route('/platform/accounts/<int:user_id>/trial/grant', methods=['POST'])
-def platform_account_trial_grant(user_id):
-    _platform_admin_required()
-    user = User.query.get_or_404(user_id)
-    # Concede/força trial independentemente de flags anteriores
-    days = request.form.get('days', type=int) or 30
-    now = datetime.now()
-    user.plan = user.plan or 'basic'
-    user.subscription_status = 'trial'
-    user.trial_started_at = now
-    user.trial_ends_at = now + timedelta(days=days)
-    user.trial_consumed = True
-    db.session.commit()
-    flash(f'Trial concedido por {days} dias.', 'success')
-    return redirect(url_for('main.platform_accounts'))
+    return None
 
 @main.route('/platform/accounts/<int:user_id>/plan/update', methods=['POST'])
 def platform_account_plan_update(user_id):
@@ -716,30 +651,60 @@ def logout_customer():
 def register():
     form = RegistrationForm()
     if form.validate_on_submit():
+        # Normaliza valores principais
+        username = (form.username.data or '').strip()
+        email = (form.email.data or '').strip().lower()
+        company_name = (form.company_name.data or '').strip()
+        phone_norm = _normalize_phone(form.phone.data)
+        # Verifica unicidade (evita IntegrityError direto)
+        if len(username) < 3:
+            flash('Usuário deve ter ao menos 3 caracteres.', 'danger')
+            return render_template('register_wizard.html', form=form)
+        if User.query.filter(func.lower(User.username) == username.lower()).first():
+            flash('Este usuário já está em uso. Escolha outro.', 'danger')
+            return render_template('register_wizard.html', form=form)
+        if User.query.filter(func.lower(User.email) == email.lower()).first():
+            flash('Este email já está cadastrado. Faça login ou use outro email.', 'danger')
+            return render_template('register_wizard.html', form=form)
+        # Nome da empresa pode repetir; apenas username (slug) precisa ser único.
+        # Telefone único para proprietários (normalizado DDD+9 dígitos)
+        if phone_norm and User.query.filter(User.phone == phone_norm).first():
+            flash('Este telefone já está associado a outra conta.', 'danger')
+            return render_template('register_wizard.html', form=form)
         # CPF validation (basic): ensure 11 digits and checksum
         raw_cpf = (form.cpf.data or '').strip()
         cpf_digits = ''.join([c for c in raw_cpf if c.isdigit()])
         if len(cpf_digits) != 11 or not _validate_cpf_checksum(cpf_digits):
             flash('CPF inválido. Use apenas números (11 dígitos).', 'danger')
-            return render_template('register.html', form=form)
+            return render_template('register_wizard.html', form=form)
+        # Verifica unicidade do CPF via hash (mesmo sem constraint no banco)
+        try:
+            hsh = _hash_cpf(cpf_digits)
+        except Exception as e:
+            current_app.logger.exception('Falha ao calcular hash do CPF: %s', e)
+            flash('Falha de configuração de segurança (CPF). Contate o suporte.', 'danger')
+            return render_template('register_wizard.html', form=form)
+        if hsh and User.query.filter(User.cpf_hash == hsh).first():
+            flash('Já existe uma conta com este CPF.', 'danger')
+            return render_template('register_wizard.html', form=form)
+        # Criptografa CPF (pode falhar se a chave não estiver configurada)
         try:
             enc = _encrypt_cpf(cpf_digits)
-            hsh = _hash_cpf(cpf_digits)
         except Exception as e:
             current_app.logger.exception('Falha na criptografia/validação do CPF: %s', e)
             flash('Falha de configuração de segurança (CPF). Configure a variável CPF_ENCRYPTION_KEY corretamente e tente novamente.', 'danger')
-            return render_template('register.html', form=form)
+            return render_template('register_wizard.html', form=form)
         new_user = User(
-            username=form.username.data,
-            full_name=form.full_name.data,
-            company_name=form.company_name.data,
-            phone=form.phone.data,
-            email=form.email.data,
+            username=username,
+            full_name=(form.full_name.data or '').strip(),
+            company_name=company_name,
+            phone=phone_norm or (form.phone.data or '').strip(),
+            email=email,
             cep=form.cep.data,
             logradouro=form.logradouro.data,
             numero=form.numero.data,
             cidade=form.cidade.data,
-            estado=form.estado.data,
+            estado=(form.estado.data or '').upper()[:2],
             role='admin',
             plan="free",
             cpf_encrypted=enc,
@@ -747,7 +712,18 @@ def register():
         )
         new_user.set_password(form.password.data)
         db.session.add(new_user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError as ie:
+            db.session.rollback()
+            if 'user_email_key' in str(ie.orig):
+                flash('Email já cadastrado. Utilize outro ou faça login.', 'danger')
+            elif 'user_username_key' in str(ie.orig) or 'username' in str(ie.orig).lower():
+                flash('Usuário já cadastrado. Escolha outro.', 'danger')
+            # company_name duplicado agora é permitido, ignoramos esse caso.
+            else:
+                flash('Não foi possível criar a conta. Tente novamente.', 'danger')
+            return render_template('register_wizard.html', form=form)
 
         # Handle profile photo upload
         file = request.files.get('profile_photo')
@@ -772,7 +748,19 @@ def register():
         except Exception:
             current_app.logger.warning('Não foi possível autenticar automaticamente o novo usuário após cadastro.')
         return redirect(url_for('main.planos'))
-    return render_template('register.html', form=form)
+    # Usa o novo wizard multi-etapas em vez do formulário monolítico
+    return render_template('register_wizard.html', form=form)
+
+@main.route('/api/username_available', methods=['GET'])
+def api_username_available():
+    """Check if a username (salon slug) is available. Case-insensitive.
+    Returns: { ok: bool, available: bool }
+    """
+    username = (request.args.get('username') or '').strip()
+    if not username or len(username) < 3:
+        return jsonify({'ok': False, 'available': False, 'error': 'invalid'}), 400
+    exists = User.query.filter(func.lower(User.username) == username.lower()).first()
+    return jsonify({'ok': True, 'available': exists is None})
 
 def _validate_cpf_checksum(cpf: str) -> bool:
     # Basic CPF checksum validation
