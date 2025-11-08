@@ -1,40 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <title>Login</title>
-</head>
-<body>
-    <div class="container">
-        <h2>Login</h2>
-        <form method="POST" action="{{ url_for('main.login') }}">
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div style="max-width:640px;margin:0 auto;padding:24px 12px 48px;display:flex;flex-direction:column;gap:28px;">
+    <!-- Logo + contexto -->
+    <div style="text-align:center;padding:10px 0 4px;">
+        <div style="font-size:2.2rem;font-weight:700;font-family:'Poppins',sans-serif;letter-spacing:0.5px;">PorAqui</div>
+        <div style="margin-top:6px;font-size:0.9rem;color:#6b7280;font-weight:500;">Acesse sua conta</div>
+    </div>
+    <!-- Card de login -->
+    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;padding:28px 24px;box-shadow:0 4px 12px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:22px;">
+        <form method="POST" action="{{ url_for('main.login') }}" style="display:flex;flex-direction:column;gap:18px;">
             {{ form.hidden_tag() }}
-            <div class="form-group">
-                <label for="email">Email</label>
-                {{ form.email(class="form-control", placeholder="Enter your email") }}
+            <div>
+                <label class="fw-label">Email</label>
+                {{ form.email(class='fw-input', placeholder='voce@exemplo.com') }}
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                {{ form.password(class="form-control", placeholder="Enter your password") }}
+            <div>
+                <label class="fw-label">Senha</label>
+                {{ form.password(class='fw-input', placeholder='Sua senha') }}
             </div>
-            <div class="form-group">
-                <button type="submit" class="btn btn-primary">Login</button>
-            </div>
+            <button type="submit" class="fw-btn fw-btn-primary" style="margin-top:4px;">Entrar</button>
             {% if form.errors %}
-                <div class="alert alert-danger">
-                    <ul>
+            <div style="background:#fef2f2;color:#b91c1c;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;font-size:0.85rem;">
+                <ul style="list-style:none;margin:0;padding:0;">
                     {% for field, errors in form.errors.items() %}
                         {% for error in errors %}
                             <li>{{ error }}</li>
                         {% endfor %}
                     {% endfor %}
-                    </ul>
-                </div>
+                </ul>
+            </div>
             {% endif %}
         </form>
-        <p>Don't have an account? <a href="{{ url_for('main.register') }}">Register here</a></p>
+        <div style="font-size:0.8rem;color:#6b7280;text-align:center;">Novo por aqui? <a href="{{ url_for('main.register') }}" style="color:#6366f1;text-decoration:none;font-weight:600;">Criar conta</a></div>
     </div>
-</body>
-</html>
+    <!-- Dicas de segurança -->
+    <div style="text-align:center;font-size:0.7rem;color:#9ca3af;">Evite acessar de computadores públicos. Use uma senha forte.</div>
+</div>
+<style>
+    .fw-label{font-size:.75rem;font-weight:600;display:block;margin-bottom:4px;color:#374151;letter-spacing:.5px;}
+    .fw-input{width:100%;padding:12px 14px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font-size:.85rem;transition:border-color .15s, box-shadow .15s;}
+    .fw-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.18);}  
+    .fw-btn{background:#fff;color:#374151;border:1px solid #d1d5db;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+    .fw-btn:hover{background:#f3f4f6;}
+    .fw-btn-primary{background:#6366f1;color:#fff;border:none;}
+    .fw-btn-primary:hover{background:#4f46e5;}
+</style>
+{% endblock %}

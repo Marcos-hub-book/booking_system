@@ -1,67 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:16px;">
-  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Entre usando seu telefone</h2>
-  <p style="color:#666;margin:0;">Digite seu número para continuar.</p>
+<div style="max-width:640px;margin:0 auto;padding:24px 12px 48px;display:flex;flex-direction:column;gap:22px;">
+  <!-- Logo / contexto do salão -->
+  <div style="text-align:center;padding:8px 0 0;">
+    <div style="font-size:2rem;font-weight:700;font-family:'Poppins',sans-serif;letter-spacing:.5px;">PorAqui</div>
+    <div style="margin-top:6px;font-size:0.9rem;color:#6b7280;font-weight:500;">Entre usando seu telefone</div>
+  </div>
 
   <!-- LoginPhoneScreen -->
-  <div id="screen-login">
-    <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Telefone</label>
-    <input id="phone-input" type="tel" inputmode="numeric" placeholder="(00) 0 0000-0000" maxlength="16"
-           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-    <small style="color:#7a7a7a;display:block;margin-top:6px;">Apenas números. Ex.: (11) 9 8765-4321</small>
-    <button id="btn-start" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Continuar</button>
+  <div id="screen-login" class="card-block" style="display:block;">
+    <div>
+      <label class="fw-label">Telefone</label>
+      <input id="phone-input" class="fw-input" type="tel" inputmode="numeric" placeholder="(00) 9 0000-0000" maxlength="16" />
+      <small style="color:#6b7280;display:block;margin-top:6px;">Digite seu celular. Ex.: (11) 9 8765-4321</small>
+    </div>
+    <button id="btn-start" class="fw-btn fw-btn-primary" style="margin-top:12px;">Continuar</button>
   </div>
 
   <!-- PhoneLoginScreen (password) -->
-  <div id="screen-password" style="display:none;">
+  <div id="screen-password" class="card-block" style="display:none;">
     <p style="margin:0 0 8px;">Olá, <strong id="customer-name"></strong>! Digite sua senha para entrar.</p>
-    <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Senha</label>
-    <input id="password-input" type="password" placeholder="Sua senha" 
-           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-    <button id="btn-login" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Entrar</button>
-    <button id="btn-back-1" style="margin-top:8px;width:100%;background:#fff;color:#232323;padding:10px 0;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;">Voltar</button>
+    <div>
+      <label class="fw-label">Senha</label>
+      <input id="password-input" class="fw-input" type="password" placeholder="Sua senha" />
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button id="btn-login" class="fw-btn fw-btn-primary">Entrar</button>
+      <button id="btn-back-1" class="fw-btn">Voltar</button>
+    </div>
   </div>
 
   <!-- RegisterScreen -->
-  <div id="screen-register" style="display:none;">
-    <p style="margin:0 0 8px;">Complete seu cadastro para continuar.</p>
-    <div style="display:flex;gap:8px;">
-      <div style="flex:1;">
-        <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Nome</label>
-        <input id="first-name" type="text" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+  <div id="screen-register" class="card-block" style="display:none;">
+    <p style="margin:0 0 8px;color:#374151;">Complete seu cadastro para continuar.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <label class="fw-label">Nome</label>
+        <input id="first-name" class="fw-input" type="text" placeholder="Seu nome" />
       </div>
-      <div style="flex:1;">
-        <label style="display:block;font-size:0.95rem;margin-bottom:6px;">Sobrenome</label>
-        <input id="last-name" type="text" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
+      <div>
+        <label class="fw-label">Sobrenome</label>
+        <input id="last-name" class="fw-input" type="text" placeholder="Seu sobrenome" />
+      </div>
+      <div style="grid-column:1/3;">
+        <label class="fw-label">Email (opcional)</label>
+        <input id="email" class="fw-input" type="email" placeholder="voce@exemplo.com" />
+      </div>
+      <div style="grid-column:1/3;">
+        <label class="fw-label">Data de nascimento</label>
+        <input id="birthdate" class="fw-input" type="date" />
+      </div>
+      <div style="grid-column:1/3;">
+        <label class="fw-label">Telefone</label>
+        <input id="phone-readonly" class="fw-input" type="text" disabled />
+      </div>
+      <div style="grid-column:1/3;">
+        <label class="fw-label">Senha</label>
+        <input id="password-register" class="fw-input" type="password" placeholder="Crie uma senha" />
+      </div>
+      <div style="grid-column:1/3;">
+        <label class="fw-label">Confirmar senha</label>
+        <input id="password-register-2" class="fw-input" type="password" placeholder="Repita a senha" />
       </div>
     </div>
-    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Email (opcional)</label>
-    <input id="email" type="email" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-
-    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Data de nascimento</label>
-    <input id="birthdate" type="date" style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-
-    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Telefone</label>
-    <input id="phone-readonly" type="text" disabled style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;background:#f7f7f7;" />
-
-    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Senha</label>
-    <input id="password-register" type="password" placeholder="Crie uma senha" 
-           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-    <label style="display:block;font-size:0.95rem;margin:10px 0 6px;">Confirmar senha</label>
-    <input id="password-register-2" type="password" placeholder="Repita a senha" 
-           style="width:100%;padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;font-size:1rem;" />
-
-    <button id="btn-register" style="margin-top:14px;width:100%;background:#232323;color:#fff;padding:12px 0;border:none;border-radius:10px;font-size:1rem;font-weight:600;">Salvar e continuar</button>
-    <button id="btn-back-2" style="margin-top:8px;width:100%;background:#fff;color:#232323;padding:10px 0;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;">Voltar</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <button id="btn-register" class="fw-btn fw-btn-primary">Salvar e continuar</button>
+      <button id="btn-back-2" class="fw-btn">Voltar</button>
+    </div>
   </div>
 
-  <div id="msg" style="color:#b00020;font-size:0.95rem;display:none;"></div>
+  <div id="msg" style="display:none;background:#fef2f2;color:#b91c1c;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;font-size:0.9rem;"></div>
 </div>
+
+<style>
+  .card-block{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:12px;}
+  .fw-label{font-size:.80rem;font-weight:600;display:block;margin-bottom:4px;color:#374151;}
+  .fw-input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;font-size:.95rem;transition:border-color .15s, box-shadow .15s;}
+  .fw-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.15);}  
+  .fw-btn{background:#fff;color:#374151;border:1px solid #d1d5db;padding:10px 16px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+  .fw-btn:hover{background:#f3f4f6;}
+  .fw-btn-primary{background:#6366f1;color:#fff;border:none;}
+  .fw-btn-primary:hover{background:#4f46e5;}
+</style>
 
 <script>
   window.SALAO_SLUG = "{{ salao_slug }}";
   // No Firebase.
+  // O comportamento continua igual; IDs foram mantidos para o auth_password.js.
+  // Apenas estilos e layout foram alinhados ao wizard.
+  // Mensagens de erro usarão o #msg com estilo de alerta.
 </script>
 <script src="{{ url_for('static', filename='js/auth_password.js') }}" defer></script>
 {% endblock %}

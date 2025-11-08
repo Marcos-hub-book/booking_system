@@ -1978,3 +1978,174 @@ def cancelar_agendamento_cliente(salao_slug, agendamento_id):
     db.session.commit()
     flash('Agendamento cancelado.', 'success')
     return redirect(url_for('main.meus_agendamentos_cliente', salao_slug=salao_slug))
+
+
+# ==========================
+# Wizard de Agendamento (Single Page)
+# ==========================
+
+@main.route('/<salao_slug>/agendamento-wizard')
+def cliente_agendamento_wizard(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return redir
+    has_locations = Location.query.filter_by(admin_id=admin.id).count() > 0
+    locations = Location.query.filter_by(admin_id=admin.id).all() if has_locations else []
+    return render_template('cliente_agendamento_wizard.html', salao_slug=salao_slug, has_locations=has_locations, locations=locations)
+
+
+# ==========================
+# API Endpoints for Wizard
+# ==========================
+
+@main.route('/api/<salao_slug>/services')
+def api_get_services(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        return jsonify({'error': 'Not found'}), 404
+    location_id = request.args.get('location_id', type=int)
+    q = Service.query.filter_by(admin_id=admin.id)
+    if is_basic(admin) and location_id:
+        q = q.join(Service.locations).filter(Location.id == location_id)
+    services = q.order_by(Service.name.asc()).all()
+    return jsonify({
+        'services': [{'id': s.id, 'name': s.name, 'duration': s.duration, 'price': str(s.price)} for s in services]
+    })
+
+
+@main.route('/api/<salao_slug>/professionals')
+def api_get_professionals(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        return jsonify({'error': 'Not found'}), 404
+    service_id = request.args.get('service_id', type=int)
+    pros = Professional.query.join(service_professional, Professional.id == service_professional.c.professional_id)
+    pros = pros.filter(service_professional.c.service_id == service_id, Professional.admin_id == admin.id).all()
+    if not pros:
+        pros = Professional.query.filter_by(admin_id=admin.id).all()
+    return jsonify({
+        'professionals': [{'id': p.id, 'name': p.name} for p in pros]
+    })
+
+
+@main.route('/api/<salao_slug>/dates')
+def api_get_dates(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        return jsonify({'error': 'Not found'}), 404
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    period = request.args.get('period')
+    
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first()
+    prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first()
+    if not service or not prof:
+        return jsonify({'dates': []})
+    
+    start_h, end_h = _period_range(period)
+    days = []
+    today = datetime.today().date()
+    for i in range(0, 14):
+        d = today + timedelta(days=i)
+        cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
+        end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+        ok = False
+        while cur + timedelta(minutes=service.duration) <= end_dt:
+            if _is_slot_available(prof, cur, service.duration, admin, location_id):
+                ok = True
+                break
+            cur += timedelta(minutes=15)
+        if ok:
+            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': d.strftime('%d/%m/%Y')})
+    return jsonify({'dates': days})
+
+
+@main.route('/api/<salao_slug>/times')
+def api_get_times(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        return jsonify({'error': 'Not found'}), 404
+    service_id = request.args.get('service_id', type=int)
+    professional_id = request.args.get('professional_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    period = request.args.get('period')
+    date_str = request.args.get('date')
+    
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first()
+    prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first()
+    if not service or not prof:
+        return jsonify({'times': []})
+    
+    try:
+        d = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except Exception:
+        return jsonify({'times': []})
+    
+    start_h, end_h = _period_range(period)
+    slots = []
+    cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
+    end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+    while cur + timedelta(minutes=service.duration) <= end_dt:
+        if _is_slot_available(prof, cur, service.duration, admin, location_id):
+            slots.append(cur.strftime('%H:%M'))
+        cur += timedelta(minutes=15)
+    return jsonify({'times': slots})
+
+
+@main.route('/api/<salao_slug>/confirmar', methods=['POST'])
+def api_confirm_appointment(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        return jsonify({'error': 'Not found'}), 404
+    redir = _require_customer_auth(salao_slug)
+    if redir:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    service_id = data.get('service_id')
+    professional_id = data.get('professional_id')
+    location_id = data.get('location_id')
+    date_str = data.get('date')
+    horario = data.get('horario')
+    
+    service = Service.query.filter_by(id=service_id, admin_id=admin.id).first()
+    professional = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first()
+    if not service or not professional:
+        return jsonify({'error': 'Invalid data'}), 400
+    
+    try:
+        appt_dt = datetime.strptime(f"{date_str} {horario}", '%Y-%m-%d %H:%M')
+    except Exception:
+        return jsonify({'error': 'Invalid date/time'}), 400
+    
+    cust_id = getattr(g, 'customer_id', None)
+    cust = Customer.query.get(cust_id) if cust_id else None
+    if not cust:
+        return jsonify({'error': 'Customer not found'}), 401
+    
+    if not _is_slot_available(professional, appt_dt, service.duration, admin, location_id):
+        return jsonify({'error': 'Slot not available'}), 409
+    
+    appt = Appointment(
+        customer_id=cust.id,
+        professional_id=professional.id,
+        service_id=service.id,
+        location_id=location_id,
+        appointment_time=appt_dt,
+        ativo=True
+    )
+    db.session.add(appt)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@main.route('/<salao_slug>/agendamento-sucesso')
+def agendamento_sucesso(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
+    return render_template('agendamento_sucesso.html', salao_slug=salao_slug)

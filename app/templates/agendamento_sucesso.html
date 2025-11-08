@@ -1,14 +1,70 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh;">
-    <div style="font-size: 3rem; color: #4caf50; margin-bottom: 18px;">&#10003;</div>
-    <h2 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 14px; color: #232323; text-align: center;">Agendamento realizado com sucesso!</h2>
-    <p style="color: #7a7a7a; font-size: 1rem; margin-bottom: 32px; text-align: center;">
-        Seu horário foi reservado. Você receberá a confirmação pelo salão.
+<div style="max-width:640px;margin:0 auto;padding:12px 8px 32px;display:flex;flex-direction:column;gap:24px;min-height:70vh;justify-content:center;align-items:center;">
+  <!-- Success Icon -->
+  <div style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(16,185,129,0.3);animation:successPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);">
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </div>
+  
+  <!-- Success Message -->
+  <div style="text-align:center;max-width:400px;">
+    <h2 style="font-size:1.8rem;font-weight:700;margin:0 0 12px;color:#374151;font-family:'Poppins',sans-serif;">Agendamento Confirmado!</h2>
+    <p style="color:#6b7280;font-size:1.05rem;line-height:1.6;margin:0;">
+      Seu horário foi reservado com sucesso. Você receberá uma confirmação do estabelecimento em breve.
     </p>
-    <a href="{{ url_for('main.salao_home', salao_slug=salao_slug) }}"
-       style="background: #232323; color: #fff; text-align: center; padding: 14px 0; border-radius: 10px; font-size: 1.1rem; text-decoration: none; font-weight: 500; width: 100%; box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);">
-        Voltar para o início
+  </div>
+  
+  <!-- Actions -->
+  <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:380px;margin-top:12px;">
+    <a href="{{ url_for('main.meus_agendamentos_cliente', salao_slug=salao_slug) }}"
+       class="success-btn success-btn-primary">
+        Ver Meus Agendamentos
     </a>
+    <a href="{{ url_for('main.cliente_opcoes', salao_slug=salao_slug) }}"
+       class="success-btn success-btn-secondary">
+        Voltar ao Menu
+    </a>
+  </div>
 </div>
+
+<style>
+  @keyframes successPop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .success-btn {
+    width:100%;
+    text-align:center;
+    padding:16px 24px;
+    border-radius:12px;
+    font-size:1.05rem;
+    font-weight:600;
+    text-decoration:none;
+    transition:all 0.3s ease;
+    display:block;
+  }
+  .success-btn-primary {
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff;
+    box-shadow:0 4px 12px rgba(99,102,241,0.3);
+  }
+  .success-btn-primary:hover {
+    transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(99,102,241,0.4);
+  }
+  .success-btn-secondary {
+    background:#fff;
+    color:#374151;
+    border:2px solid #e5e7eb;
+  }
+  .success-btn-secondary:hover {
+    border-color:#6366f1;
+    color:#6366f1;
+    transform:translateY(-2px);
+  }
+</style>
 {% endblock %}

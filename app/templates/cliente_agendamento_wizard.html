@@ -1,0 +1,424 @@
+{% extends 'base.html' %}
+{% block title %}Novo Agendamento{% endblock %}
+{% block content %}
+<div id="booking-wizard" style="max-width:640px;margin:0 auto;padding:12px 8px 32px;display:flex;flex-direction:column;gap:24px;">
+  <!-- Logo -->
+  <div style="text-align:center;padding:12px 0;">
+    <div style="font-size:2rem;font-weight:700;font-family:'Poppins',sans-serif;letter-spacing:0.5px;">PorAqui</div>
+    <div style="margin-top:4px;font-size:0.9rem;color:#6b7280;font-weight:500;">Agendamento em etapas</div>
+  </div>
+  
+  <!-- Progress bar -->
+  <div style="width:100%;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+    <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .35s ease;"></div>
+  </div>
+  
+  <!-- Steps container -->
+  <div id="wizard-container" style="display:flex;flex-direction:column;gap:28px;">
+    
+    <!-- Step 1: Local (if applicable) -->
+    {% if has_locations %}
+    <section class="wizard-step" data-step="1" style="display:block;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o local</h2>
+      <div style="display:grid;grid-template-columns:1fr;gap:14px;">
+        {% for loc in locations %}
+        <button type="button" class="wizard-option-btn" data-location-id="{{ loc.id }}">
+          {{ loc.name }}
+        </button>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    
+    <!-- Step 2: Serviço -->
+    <section class="wizard-step" data-step="{{ 2 if has_locations else 1 }}" style="display:{{ 'none' if has_locations else 'block' }};">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o serviço</h2>
+      <div id="services-container" style="display:grid;grid-template-columns:1fr;gap:14px;">
+        <!-- Services will be loaded here -->
+      </div>
+    </section>
+    
+    <!-- Step 3: Profissional -->
+    <section class="wizard-step" data-step="{{ 3 if has_locations else 2 }}" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o profissional</h2>
+      <div id="professionals-container" style="display:grid;grid-template-columns:1fr;gap:14px;">
+        <!-- Professionals will be loaded here -->
+      </div>
+    </section>
+    
+    <!-- Step 4: Período -->
+    <section class="wizard-step" data-step="{{ 4 if has_locations else 3 }}" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o período</h2>
+      <div style="display:grid;grid-template-columns:1fr;gap:14px;">
+        <button type="button" class="wizard-option-btn" data-period="manha">
+          <span style="font-size:1.1rem;">🌅</span> Manhã (8h - 12h)
+        </button>
+        <button type="button" class="wizard-option-btn" data-period="tarde">
+          <span style="font-size:1.1rem;">☀️</span> Tarde (12h - 18h)
+        </button>
+        <button type="button" class="wizard-option-btn" data-period="noite">
+          <span style="font-size:1.1rem;">🌙</span> Noite (18h - 22h)
+        </button>
+      </div>
+    </section>
+    
+    <!-- Step 5: Data -->
+    <section class="wizard-step" data-step="{{ 5 if has_locations else 4 }}" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o dia</h2>
+      <div id="dates-container" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:12px;">
+        <!-- Dates will be loaded here -->
+      </div>
+      <div id="no-dates" style="display:none;text-align:center;color:#6b7280;padding:24px;">
+        Nenhum dia disponível neste período.
+      </div>
+    </section>
+    
+    <!-- Step 6: Horário -->
+    <section class="wizard-step" data-step="{{ 6 if has_locations else 5 }}" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Escolha o horário</h2>
+      <div id="times-container" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:12px;">
+        <!-- Times will be loaded here -->
+      </div>
+      <div id="no-times" style="display:none;text-align:center;color:#6b7280;padding:24px;">
+        Nenhum horário disponível.
+      </div>
+    </section>
+    
+    <!-- Step 7: Confirmação -->
+    <section class="wizard-step" data-step="{{ 7 if has_locations else 6 }}" style="display:none;">
+      <h2 style="font-size:1.4rem;margin:0 0 12px;font-weight:600;">Confirme seu agendamento</h2>
+      <div style="background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e5e7eb;">
+          <span style="color:#6b7280;font-weight:500;">Local:</span>
+          <span id="confirm-location" style="font-weight:600;color:#374151;">-</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e5e7eb;">
+          <span style="color:#6b7280;font-weight:500;">Serviço:</span>
+          <span id="confirm-service" style="font-weight:600;color:#374151;">-</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e5e7eb;">
+          <span style="color:#6b7280;font-weight:500;">Profissional:</span>
+          <span id="confirm-professional" style="font-weight:600;color:#374151;">-</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e5e7eb;">
+          <span style="color:#6b7280;font-weight:500;">Data:</span>
+          <span id="confirm-date" style="font-weight:600;color:#374151;">-</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;">
+          <span style="color:#6b7280;font-weight:500;">Horário:</span>
+          <span id="confirm-time" style="font-weight:600;color:#374151;">-</span>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+  <!-- Navigation Buttons -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+    <button type="button" id="btn-prev" class="fw-btn" disabled>Voltar</button>
+    <button type="button" id="btn-next" class="fw-btn fw-btn-primary" style="display:none;">Avançar</button>
+    <button type="button" id="btn-confirm" class="fw-btn fw-btn-primary" style="display:none;">Confirmar Agendamento</button>
+  </div>
+  
+  <div style="text-align:center;font-size:0.85rem;color:#6b7280;margin-top:8px;">
+    <a href="{{ url_for('main.cliente_opcoes', salao_slug=salao_slug) }}" style="color:#6366f1;text-decoration:none;">← Voltar ao menu</a>
+  </div>
+</div>
+
+<style>
+  .fw-label{font-size:.80rem;font-weight:600;display:block;margin-bottom:4px;color:#374151;}
+  .fw-input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;font-size:.9rem;transition:border-color .15s, box-shadow .15s;}
+  .fw-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.15);}
+  .fw-btn{background:#fff;color:#374151;border:1px solid #d1d5db;padding:10px 18px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+  .fw-btn[disabled]{opacity:.5;cursor:not-allowed;}
+  .fw-btn:hover:not([disabled]){background:#f3f4f6;}
+  .fw-btn-primary{background:#6366f1;color:#fff;border:none;}
+  .fw-btn-primary:hover:not([disabled]){background:#4f46e5;}
+  .wizard-step{animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  
+  .wizard-option-btn{
+    width:100%;
+    background:#fff;
+    border:2px solid #e5e7eb;
+    border-radius:12px;
+    padding:16px 18px;
+    font-size:1.05rem;
+    color:#374151;
+    font-weight:500;
+    cursor:pointer;
+    transition:all 0.2s ease;
+    text-align:left;
+  }
+  .wizard-option-btn:hover{
+    border-color:#6366f1;
+    background:#f0f1ff;
+    transform:translateX(4px);
+  }
+  .wizard-option-btn.selected{
+    border-color:#6366f1;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff;
+  }
+</style>
+
+<script>
+(function(){
+  const salaoSlug = "{{ salao_slug }}";
+  const hasLocations = {{ 'true' if has_locations else 'false' }};
+  const totalSteps = hasLocations ? 7 : 6;
+  
+  // Booking state
+  const bookingData = {
+    locationId: null,
+    locationName: null,
+    serviceId: null,
+    serviceName: null,
+    professionalId: null,
+    professionalName: null,
+    period: null,
+    date: null,
+    dateFormatted: null,
+    time: null
+  };
+  
+  const steps = Array.from(document.querySelectorAll('.wizard-step'));
+  let currentStep = 1;
+  const progress = document.getElementById('progress-bar');
+  const prevBtn = document.getElementById('btn-prev');
+  const nextBtn = document.getElementById('btn-next');
+  const confirmBtn = document.getElementById('btn-confirm');
+  
+  function updateProgress(){
+    const pct = ((currentStep - 1) / (totalSteps - 1)) * 100;
+    progress.style.width = pct + '%';
+  }
+  
+  function showStep(stepNum){
+    steps.forEach(s => {
+      const sNum = parseInt(s.getAttribute('data-step'));
+      s.style.display = sNum === stepNum ? 'block' : 'none';
+    });
+    currentStep = stepNum;
+    prevBtn.disabled = stepNum === 1;
+    nextBtn.style.display = 'none';
+    confirmBtn.style.display = stepNum === totalSteps ? 'inline-block' : 'none';
+    updateProgress();
+  }
+  
+  prevBtn.addEventListener('click', () => {
+    if(currentStep > 1) showStep(currentStep - 1);
+  });
+  
+  nextBtn.addEventListener('click', () => {
+    if(currentStep < totalSteps) showStep(currentStep + 1);
+  });
+  
+  // Step 1: Location selection (if applicable)
+  if(hasLocations){
+    document.querySelectorAll('[data-location-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        bookingData.locationId = btn.getAttribute('data-location-id');
+        bookingData.locationName = btn.textContent.trim();
+        await loadServices();
+        showStep(2);
+      });
+    });
+  } else {
+    // Load services immediately
+    loadServices();
+  }
+  
+  async function loadServices(){
+    const container = document.getElementById('services-container');
+    container.innerHTML = '<div style="text-align:center;color:#6b7280;">Carregando...</div>';
+    try {
+      const url = `/api/${salaoSlug}/services?location_id=${bookingData.locationId || ''}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if(data.services && data.services.length > 0){
+        container.innerHTML = data.services.map(s => 
+          `<button type="button" class="wizard-option-btn" data-service-id="${s.id}" data-service-name="${s.name}">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:600;">${s.name}</span>
+              <div style="display:flex;gap:12px;align-items:center;">
+                <span style="font-size:0.9rem;color:#6b7280;">${s.duration} min</span>
+                <span style="font-weight:600;color:#059669;">R$ ${s.price}</span>
+              </div>
+            </div>
+          </button>`
+        ).join('');
+        attachServiceListeners();
+      } else {
+        container.innerHTML = '<div style="text-align:center;color:#6b7280;">Nenhum serviço disponível.</div>';
+      }
+    } catch(e) {
+      container.innerHTML = '<div style="text-align:center;color:#b91c1c;">Erro ao carregar serviços.</div>';
+    }
+  }
+  
+  function attachServiceListeners(){
+    document.querySelectorAll('[data-service-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        bookingData.serviceId = btn.getAttribute('data-service-id');
+        bookingData.serviceName = btn.getAttribute('data-service-name');
+        await loadProfessionals();
+        showStep(hasLocations ? 3 : 2);
+      });
+    });
+  }
+  
+  async function loadProfessionals(){
+    const container = document.getElementById('professionals-container');
+    container.innerHTML = '<div style="text-align:center;color:#6b7280;">Carregando...</div>';
+    try {
+      const url = `/api/${salaoSlug}/professionals?service_id=${bookingData.serviceId}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if(data.professionals && data.professionals.length > 0){
+        container.innerHTML = data.professionals.map(p => 
+          `<button type="button" class="wizard-option-btn" data-professional-id="${p.id}" data-professional-name="${p.name}">
+            ${p.name}
+          </button>`
+        ).join('');
+        attachProfessionalListeners();
+      } else {
+        container.innerHTML = '<div style="text-align:center;color:#6b7280;">Nenhum profissional disponível.</div>';
+      }
+    } catch(e) {
+      container.innerHTML = '<div style="text-align:center;color:#b91c1c;">Erro ao carregar profissionais.</div>';
+    }
+  }
+  
+  function attachProfessionalListeners(){
+    document.querySelectorAll('[data-professional-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bookingData.professionalId = btn.getAttribute('data-professional-id');
+        bookingData.professionalName = btn.getAttribute('data-professional-name');
+        showStep(hasLocations ? 4 : 3);
+      });
+    });
+  }
+  
+  // Step: Period selection
+  document.querySelectorAll('[data-period]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      bookingData.period = btn.getAttribute('data-period');
+      await loadDates();
+      showStep(hasLocations ? 5 : 4);
+    });
+  });
+  
+  async function loadDates(){
+    const container = document.getElementById('dates-container');
+    const noData = document.getElementById('no-dates');
+    container.innerHTML = '<div style="text-align:center;color:#6b7280;grid-column:1/-1;">Carregando...</div>';
+    noData.style.display = 'none';
+    try {
+      const url = `/api/${salaoSlug}/dates?service_id=${bookingData.serviceId}&professional_id=${bookingData.professionalId}&location_id=${bookingData.locationId || ''}&period=${bookingData.period}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if(data.dates && data.dates.length > 0){
+        container.innerHTML = data.dates.map(d => 
+          `<button type="button" class="wizard-option-btn" style="text-align:center;" data-date="${d.value}" data-date-formatted="${d.formatted}">
+            ${d.formatted}
+          </button>`
+        ).join('');
+        attachDateListeners();
+      } else {
+        container.innerHTML = '';
+        noData.style.display = 'block';
+      }
+    } catch(e) {
+      container.innerHTML = '<div style="text-align:center;color:#b91c1c;grid-column:1/-1;">Erro ao carregar datas.</div>';
+    }
+  }
+  
+  function attachDateListeners(){
+    document.querySelectorAll('[data-date]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        bookingData.date = btn.getAttribute('data-date');
+        bookingData.dateFormatted = btn.getAttribute('data-date-formatted');
+        await loadTimes();
+        showStep(hasLocations ? 6 : 5);
+      });
+    });
+  }
+  
+  async function loadTimes(){
+    const container = document.getElementById('times-container');
+    const noData = document.getElementById('no-times');
+    container.innerHTML = '<div style="text-align:center;color:#6b7280;grid-column:1/-1;">Carregando...</div>';
+    noData.style.display = 'none';
+    try {
+      const url = `/api/${salaoSlug}/times?service_id=${bookingData.serviceId}&professional_id=${bookingData.professionalId}&location_id=${bookingData.locationId || ''}&period=${bookingData.period}&date=${bookingData.date}`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if(data.times && data.times.length > 0){
+        container.innerHTML = data.times.map(t => 
+          `<button type="button" class="wizard-option-btn" style="text-align:center;" data-time="${t}">
+            ${t}
+          </button>`
+        ).join('');
+        attachTimeListeners();
+      } else {
+        container.innerHTML = '';
+        noData.style.display = 'block';
+      }
+    } catch(e) {
+      container.innerHTML = '<div style="text-align:center;color:#b91c1c;grid-column:1/-1;">Erro ao carregar horários.</div>';
+    }
+  }
+  
+  function attachTimeListeners(){
+    document.querySelectorAll('[data-time]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bookingData.time = btn.getAttribute('data-time');
+        updateConfirmation();
+        showStep(totalSteps);
+      });
+    });
+  }
+  
+  function updateConfirmation(){
+    document.getElementById('confirm-location').textContent = bookingData.locationName || 'N/A';
+    document.getElementById('confirm-service').textContent = bookingData.serviceName || '-';
+    document.getElementById('confirm-professional').textContent = bookingData.professionalName || '-';
+    document.getElementById('confirm-date').textContent = bookingData.dateFormatted || '-';
+    document.getElementById('confirm-time').textContent = bookingData.time || '-';
+  }
+  
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Confirmando...';
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/confirmar`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          service_id: bookingData.serviceId,
+          professional_id: bookingData.professionalId,
+          location_id: bookingData.locationId,
+          date: bookingData.date,
+          horario: bookingData.time
+        })
+      });
+      if(resp.ok){
+        window.location.href = `/${salaoSlug}/agendamento-sucesso`;
+      } else {
+        const errorData = await resp.json();
+        alert(errorData.error || 'Erro ao confirmar agendamento. Tente novamente.');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar Agendamento';
+      }
+    } catch(e) {
+      console.error('Erro:', e);
+      alert('Erro ao confirmar agendamento. Tente novamente.');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmar Agendamento';
+    }
+  });
+  
+  showStep(1);
+})();
+</script>
+{% endblock %}
