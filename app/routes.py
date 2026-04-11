@@ -19,10 +19,12 @@ import locale
 
 
 main = Blueprint('main', __name__)
-try:
-    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-except locale.Error:
-    locale.setlocale(locale.LC_TIME, 'C')
+#try:
+   # locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+#except locale.Error:
+    #locale.setlocale(locale.LC_TIME, 'C')'
+dias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
+meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
 # ==========================
 # Plataforma Admin: login e painel de contas
@@ -652,7 +654,7 @@ def login():
         else:
             print("Usuário não encontrado")
         if user and user.check_password(form.password.data):
-            login_user(user)
+            login_user(user, remember=True)
             flash('Login successful!', 'success')
             return redirect(url_for('main.dashboard'))
         flash('Login failed. Check your email and password.', 'danger')
@@ -2087,7 +2089,7 @@ def api_get_dates(salao_slug):
                 break
             cur += timedelta(minutes=15)
         if ok:
-            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': d.strftime('%a, %d de %b')})
+            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': f"{dias[d.weekday()]}, {d.day:02d} de {meses[d.month-1]}"})
     return jsonify({'dates': days})
 
 

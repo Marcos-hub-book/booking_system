@@ -36,12 +36,12 @@
   <a href="{{ url_for('main.dashboard', data=d.strftime('%Y-%m-%d'), professional_id=professional_id, status=status) }}" style="text-decoration:none;">
         {% if i==0 %}
   <div style="width:52px;min-width:52px;text-align:center;padding:8px 0;border:1px solid #e3e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-radius:16px;background:#232323;color:#fff;">
-          <div style="font-size:0.75rem;opacity:0.95;">{{ d.strftime('%a')|capitalize }}</div>
+          <div style="font-size:0.75rem;opacity:0.95;">{{ ['seg','ter','qua','qui','sex','sáb','dom'][d.weekday()]|capitalize }}</div>
           <div style="font-size:1rem;font-weight:600;line-height:1.4;">{{ d.strftime('%d') }}</div>
         </div>
         {% else %}
   <div style="width:52px;min-width:52px;text-align:center;padding:8px 0;border:1px solid #e3e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-radius:16px;background:#fff;color:#232323;">
-          <div style="font-size:0.75rem;opacity:0.7;">{{ d.strftime('%a')|capitalize }}</div>
+          <div style="font-size:0.75rem;opacity:0.7;">{{ ['seg','ter','qua','qui','sex','sáb','dom'][d.weekday()]|capitalize }}</div>
           <div style="font-size:1rem;font-weight:600;line-height:1.4;">{{ d.strftime('%d') }}</div>
         </div>
         {% endif %}
