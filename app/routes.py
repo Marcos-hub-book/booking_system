@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
-from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location
+from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location, Notification
 from .models import Location
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, or_
@@ -15,8 +15,11 @@ import hashlib
 from cryptography.fernet import Fernet, InvalidToken
 from werkzeug.utils import secure_filename
 import requests
+import locale
+
 
 main = Blueprint('main', __name__)
+locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 
 # ==========================
 # Plataforma Admin: login e painel de contas
@@ -340,6 +343,12 @@ def dashboard_add_appointment():
     )
     db.session.add(appointment)
     db.session.commit()
+
+    # Criar notificação
+    service_name = Service.query.get(service_id).name if service_id else "horário"
+    message = f"Novo agendamento: {customer.name} para {service_name} às {appt_time.strftime('%H:%M')}."
+    create_notification(current_user.id, message, related_id=appointment.id, related_type='appointment')
+
     flash('Agendamento criado com sucesso!', 'success')
     return redirect(url_for('main.dashboard'))
 
@@ -1135,6 +1144,13 @@ def dashboard_cancelar_agendamento(agendamento_id):
     agendamento = Appointment.query.join(Professional).filter(Appointment.id == agendamento_id, Professional.admin_id == current_user.id).first_or_404()
     agendamento.ativo = False
     db.session.commit()
+
+    # Criar notificação de cancelamento
+    customer_name = agendamento.customer.name if agendamento.customer else "Bloqueio"
+    service_name = agendamento.service.name if agendamento.service else "horário"
+    message = f"Cancelamento: {customer_name} para {service_name} de {agendamento.appointment_time.strftime('%d/%m %H:%M')}."
+    create_notification(current_user.id, message, related_id=agendamento.id, related_type='cancellation')
+
     flash('Agendamento cancelado com sucesso.', 'success')
     # Redireciona para o dashboard na mesma data
     date_str = agendamento.appointment_time.strftime('%Y-%m-%d')
@@ -1778,9 +1794,6 @@ def cliente_profissional_route(salao_slug):
         return redir
     service_id = request.args.get('service_id', type=int)
     location_id = request.args.get('location_id', type=int)
-    if not service_id:
-        return redirect(url_for('main.salao_servico', salao_slug=salao_slug, location_id=location_id))
-    # profissionais associados ao serviço
     pros = Professional.query.join(service_professional, Professional.id == service_professional.c.professional_id)
     pros = pros.filter(service_professional.c.service_id == service_id, Professional.admin_id == admin.id).all()
     # fallback: se nenhum associado, lista todos do admin
@@ -1934,7 +1947,12 @@ def confirmar_agendamento(salao_slug):
         appt = Appointment(customer_id=cust.id, professional_id=professional.id, service_id=service.id, location_id=location_id, appointment_time=appt_dt, ativo=True)
         db.session.add(appt)
         db.session.commit()
-        return render_template('agendamento_sucesso.html', salao_slug=salao_slug)
+
+    # Criar notificação para o admin do salão
+    message = f"Novo agendamento de {cust.name} para {service.name} em {appt_dt.strftime('%d/%m %H:%M')}."
+    create_notification(admin.id, message, related_id=appt.id, related_type='appointment')
+
+    return render_template('agendamento_sucesso.html', salao_slug=salao_slug)
     data_fmt = appt_dt.strftime('%d/%m/%Y')
     hora_fmt = appt_dt.strftime('%H:%M')
     return render_template('confirmar_agendamento.html', service=service, professional=professional, data=data_fmt, horario=hora_fmt)
@@ -1976,6 +1994,11 @@ def cancelar_agendamento_cliente(salao_slug, agendamento_id):
     ).first_or_404()
     ag.ativo = False
     db.session.commit()
+
+    # Criar notificação para o admin do salão
+    message = f"Cancelamento por cliente: {ag.customer.name} para {ag.service.name} de {ag.appointment_time.strftime('%d/%m %H:%M')}."
+    create_notification(admin.id, message, related_id=ag.id, related_type='cancellation')
+
     flash('Agendamento cancelado.', 'success')
     return redirect(url_for('main.meus_agendamentos_cliente', salao_slug=salao_slug))
 
@@ -2024,6 +2047,7 @@ def api_get_professionals(salao_slug):
     service_id = request.args.get('service_id', type=int)
     pros = Professional.query.join(service_professional, Professional.id == service_professional.c.professional_id)
     pros = pros.filter(service_professional.c.service_id == service_id, Professional.admin_id == admin.id).all()
+    # fallback: se nenhum associado, lista todos do admin
     if not pros:
         pros = Professional.query.filter_by(admin_id=admin.id).all()
     return jsonify({
@@ -2060,7 +2084,7 @@ def api_get_dates(salao_slug):
                 break
             cur += timedelta(minutes=15)
         if ok:
-            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': d.strftime('%d/%m/%Y')})
+            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': d.strftime('%a, %d de %b')})
     return jsonify({'dates': days})
 
 
@@ -2140,6 +2164,11 @@ def api_confirm_appointment(salao_slug):
     )
     db.session.add(appt)
     db.session.commit()
+
+     # Criar notificação para o admin do salão
+    message = f"Novo agendamento de {cust.name} para {service.name} em {appt_dt.strftime('%d/%m %H:%M')}."
+    create_notification(admin.id, message, related_id=appt.id, related_type='appointment')
+
     return jsonify({'success': True})
 
 
@@ -2148,4 +2177,45 @@ def agendamento_sucesso(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not _public_link_allowed(admin):
         abort(404)
+    
     return render_template('agendamento_sucesso.html', salao_slug=salao_slug)
+    
+def create_notification(user_id, message, related_id=None, related_type=None):
+    """Helper para criar uma notificação para um usuário."""
+    try:
+        notification = Notification(
+            user_id=user_id,
+            message=message,
+            related_id=related_id,
+            related_type=related_type
+        )
+        db.session.add(notification)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro ao criar notificação: {e}")
+
+@main.route('/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Retorna as notificações mais recentes para o usuário logado."""
+    if current_user.role != 'admin':
+        abort(403)
+    
+    notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.timestamp.desc()).limit(20).all()
+    
+    # Opcional: marcar como lidas ao serem visualizadas
+    for n in notifications:
+         n.read = True
+    db.session.commit()
+
+    return jsonify({
+        'notifications': [
+            {
+                'id': n.id,
+                'message': n.message,
+                'timestamp': n.timestamp.strftime('%d/%m/%Y %H:%M'),
+                'read': n.read
+            } for n in notifications
+        ]
+    })

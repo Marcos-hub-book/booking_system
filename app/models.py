@@ -145,6 +145,16 @@ class ProfessionalSchedule(db.Model):
 
     professional = db.relationship('Professional', backref='schedules')
 
-    
-    
-    
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.String(255), nullable=False)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    read = db.Column(db.Boolean, default=False)
+    related_id = db.Column(db.Integer)
+    related_type = db.Column(db.String(50))
+
+    user = db.relationship('User', backref='notifications')
+
+
+
