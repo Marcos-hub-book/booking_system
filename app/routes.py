@@ -1354,14 +1354,61 @@ def edit_location(location_id):
     dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
     if request.method == 'POST':
         name = (request.form.get('name') or '').strip()
-        if name:
-            loc.name = name
-            db.session.commit()
-            flash('Local atualizado com sucesso.', 'success')
-            return redirect(url_for('main.locations_list'))
-        flash('Nome do local é obrigatório.', 'danger')
-    return render_template('edit_location.html', location=loc, horarios=horarios, dias=dias)
+        if not name:
+            flash('Nome do local é obrigatório.', 'danger')
+            return redirect(request.url)
+        loc.name = name
+        workdays = set(int(x) for x in request.form.getlist('workdays'))
+        existing = {
+            h.weekday: h
+            for h in LocationSchedule.query.filter_by(location_id=loc.id).all()
+         }
+        for i in workdays:
+            start_val = (request.form.get(f'start_{i}') or '').strip()
+            end_val = (request.form.get(f'end_{i}') or '').strip()
+            bstart_val = (request.form.get(f'break_start_{i}') or '').strip()
+            bend_val = (request.form.get(f'break_end_{i}') or '').strip()
 
+            if not (start_val and end_val):
+                continue
+
+            try:
+                st = datetime.strptime(start_val, '%H:%M').time()
+                en = datetime.strptime(end_val, '%H:%M').time()
+                bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+            except Exception:
+                continue
+
+            if i in existing:
+                # 👉 ATUALIZA (isso que faltava)
+                existing[i].start_time = st
+                existing[i].end_time = en
+                existing[i].break_start = bs
+                existing[i].break_end = be
+            else:
+            # 👉 CRIA
+                db.session.add(LocationSchedule(
+                    location_id=loc.id,
+                    weekday=i,
+                    start_time=st,
+                    end_time=en,
+                    break_start=bs,
+                    break_end=be
+                ))
+        for i, sched in existing.items():
+            if i not in workdays:
+                db.session.delete(sched)
+        db.session.commit()
+        flash('Local atualizado com sucesso.', 'success')
+        return redirect(url_for('main.locations_list'))
+    return render_template(
+        'edit_location.html',
+        location=loc,
+        horarios=horarios,
+        dias=dias
+    )
+    
 @main.route('/professionals/add', endpoint='add_professional', methods=['GET','POST'])
 @login_required
 def add_professional():
@@ -1428,7 +1475,7 @@ def add_service():
     redir = _require_account_active_for_modifications()
     if redir:
         return redir
-    pros = Professional.query.filter_by(admin_id=current_user.id).all()
+    pros = get_professionals(current_user)
     locs = Location.query.filter_by(admin_id=current_user.id).all()
     if request.method == 'POST':
         name = (request.form.get('name') or '').strip()
@@ -1966,6 +2013,7 @@ def confirmar_agendamento(salao_slug):
 @main.route('/<salao_slug>/meus-agendamentos')
 def meus_agendamentos_cliente(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    now = datetime.now()
     if not _public_link_allowed(admin):
         abort(404)
     redir = _require_customer_auth(salao_slug)
@@ -1980,7 +2028,7 @@ def meus_agendamentos_cliente(salao_slug):
         Professional.admin_id == admin.id,
         Appointment.ativo == True
     ).options(joinedload(Appointment.service), joinedload(Appointment.professional), joinedload(Appointment.location)).order_by(Appointment.appointment_time.asc()).all()
-    return render_template('meus_agendamentos_cliente.html', agendamentos=ags, salao_slug=salao_slug)
+    return render_template('meus_agendamentos_cliente.html', agendamentos=ags, salao_slug=salao_slug, now=now)
 
 
 @main.route('/<salao_slug>/cancelar/<int:agendamento_id>', methods=['POST'])
@@ -2224,3 +2272,27 @@ def get_notifications():
             } for n in notifications
         ]
     })
+@main.route('/admin/login-as/<int:user_id>')
+@login_required
+def login_as(user_id):
+    if current_user.role != 'admin':
+        abort(403)
+
+    user = User.query.get_or_404(user_id)
+
+    # guarda o admin atual
+    session['admin_id'] = current_user.id
+
+    # entra como o cliente
+    login_user(user)
+
+    return redirect(url_for('main.dashboard'))
+
+#Funçao para profesionals
+def get_professionals(admin):
+    pros = Professional.query.filter_by(admin_id=admin.id).all()
+
+    if not pros and admin.plan == 'basic':
+        pros = [ensure_default_professional(admin)]
+
+    return pros
