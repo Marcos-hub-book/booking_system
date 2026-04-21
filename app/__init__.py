@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 import os
+import cloudinary
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -11,9 +12,11 @@ def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chaveprojeto123')
     # Uploads
-    upload_folder = os.path.join(app.root_path, 'static', 'uploads')
-    os.makedirs(upload_folder, exist_ok=True)
-    app.config['UPLOAD_FOLDER'] = upload_folder
+    cloudinary.config(
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.getenv("CLOUDINARY_API_KEY"),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    )
     app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # 4MB
     
     db_url = os.environ.get('DATABASE_URL')

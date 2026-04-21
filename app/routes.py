@@ -16,6 +16,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from werkzeug.utils import secure_filename
 import requests
 import locale
+import cloudinary.uploader
 
 
 main = Blueprint('main', __name__)
@@ -381,17 +382,19 @@ def dashboard_profile():
         file = request.files.get('profile_photo')
         if file and file.filename:
             try:
-                filename = secure_filename(file.filename)
-                name, ext = os.path.splitext(filename)
-                safe_name = f"user_{current_user.id}{ext.lower()}"
-                upload_dir = current_app.config.get('UPLOAD_FOLDER')
-                os.makedirs(upload_dir, exist_ok=True)
-                save_path = os.path.join(upload_dir, safe_name)
-                file.save(save_path)
-                # Caminho relativo para static
-                rel_path = os.path.relpath(save_path, os.path.join(current_app.root_path, 'static'))
-                rel_path = rel_path.replace('\\', '/')
-                current_user.profile_photo = rel_path
+                result = cloudinary.uploader.upload(
+                    file,
+                    folder="profile_photos",
+                    public_id=f"user_{current_user.id}",
+                    overwrite=True,
+                    transformation=[
+                        {"width": 200, "height": 200, "crop": "fill"},
+                        {"quality": "auto"},
+                        {"fetch_format": "auto"}
+                    ]
+                )
+
+                current_user.profile_photo = result["secure_url"]
                 changed = True
             except Exception as e:
                 current_app.logger.exception('Falha ao salvar foto de perfil: %s', e)
@@ -477,8 +480,16 @@ def inject_customer_name():
 def inject_profile_photo_helper():
     def profile_photo_url(path: str | None):
         if not path:
-            return None
-        p = str(path).replace('\\', '/').lstrip('/')
+            return url_for('static', filename='default.png')
+
+        p = str(path).strip()
+
+        # 🔥 Se já for URL externa (Cloudinary), retorna direto
+        if p.startswith('http://') or p.startswith('https://'):
+            return p
+
+        # 🔁 Compatibilidade com imagens antigas locais
+        p = p.replace('\\', '/').lstrip('/')
         if p.startswith('static/'):
             p = p[len('static/'):]
         return url_for('static', filename=p)
@@ -864,18 +875,19 @@ def register():
         # Handle profile photo upload
         file = request.files.get('profile_photo')
         if file and file.filename:
-            filename = secure_filename(file.filename)
-            name, ext = os.path.splitext(filename)
-            # Use user id to avoid collisions
-            safe_name = f"user_{new_user.id}{ext.lower()}"
-            upload_dir = current_app.config.get('UPLOAD_FOLDER')
-            os.makedirs(upload_dir, exist_ok=True)
-            save_path = os.path.join(upload_dir, safe_name)
-            file.save(save_path)
-            # Store relative path under static for url_for
-            rel_path = os.path.relpath(save_path, os.path.join(current_app.root_path, 'static'))
-            rel_path = rel_path.replace('\\', '/')
-            new_user.profile_photo = rel_path
+            result = cloudinary.uploader.upload(
+                file,
+                folder="profile_photos",
+                public_id=f"user_{new_user.id}",
+                overwrite=True,
+                transformation=[
+                    {"width": 200, "height": 200, "crop": "fill"},
+                    {"quality": "auto"},
+                    {"fetch_format": "auto"}
+                ]
+            )
+
+            new_user.profile_photo = result["secure_url"]
             db.session.commit()
         flash('Conta criada com sucesso! Escolha um plano para começar.', 'success')
         # Autentica o novo admin imediatamente para que o fluxo de planos/trial use este usuário
