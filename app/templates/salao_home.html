@@ -1,300 +1,284 @@
-{% extends "base.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{{ admin.company_name }}</title>
 
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background: #f5f2ee;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
 
-  body {
-    background: #f5f2ee;
-    font-family: 'Inter', sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
+    /* ─── Page shell ─── */
+    .profile-page {
+      width: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #f5f2ee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-  /* ─── Page shell ─── */
-  .profile-page {
-    width: 100%;
-    max-width: 430px;
-    margin: 0 auto;
-    min-height: 100vh;
-    background: #f5f2ee;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-  }
+    /* ─── Cover ─── */
+    .hero-section {
+      width: 100%;
+      position: relative;
+    }
 
-  /* ─── Cover: full-bleed, sem gaps ─── */
-  .hero-section {
-    width: 100%;
-    position: relative;
-  }
+    .hero-cover {
+      width: 100%;
+      height: 220px;
+      overflow: hidden;
+      background: #e8e3dc;
+      position: relative;
+    }
 
-  .hero-cover {
-    width: 100%;
-    height: 240px;
-    overflow: hidden;
-    background: #e8e3dc;
-    position: relative;
-  }
+    .hero-cover img.cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
-  .hero-cover img.cover-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+    .cover-placeholder {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.04) 39px, rgba(0,0,0,0.04) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.04) 39px, rgba(0,0,0,0.04) 40px),
+        #ede8e1;
+    }
 
-  /* Placeholder quando sem foto */
-  .cover-placeholder {
-    position: absolute;
-    inset: 0;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 39px,
-        rgba(0,0,0,0.04) 39px,
-        rgba(0,0,0,0.04) 40px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 39px,
-        rgba(0,0,0,0.04) 39px,
-        rgba(0,0,0,0.04) 40px
-      ),
-      #ede8e1;
-  }
+    .hero-cover::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 100px;
+      background: linear-gradient(to bottom, transparent, #f5f2ee);
+      pointer-events: none;
+    }
 
-  /* Fade inferior da capa → fundo da página */
-  .hero-cover::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 120px;
-    background: linear-gradient(to bottom, transparent 0%, #f5f2ee 100%);
-    pointer-events: none;
-  }
+    /* ─── Avatar ─── */
+    .avatar-wrapper {
+      position: absolute;
+      bottom: -52px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
 
-  /* ─── Avatar ─── */
-  .avatar-wrapper {
-    position: absolute;
-    bottom: -52px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 20;
-  }
+    .avatar-ring {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: #f5f2ee;
+      padding: 3px;
+    }
 
-  .avatar-ring {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    background: #f5f2ee;
-    padding: 3px;
-  }
+    .avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #ddd8d0;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
 
-  .avatar-inner {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    overflow: hidden;
-    background: #ddd8d0;
-    border: 1px solid rgba(0,0,0,0.08);
-  }
+    .avatar-inner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
-  .avatar-inner img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+    .avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(0,0,0,0.2);
+      text-transform: uppercase;
+    }
 
-  .avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    color: rgba(0,0,0,0.2);
-    text-transform: uppercase;
-  }
+    /* ─── Info ─── */
+    .profile-info {
+      margin-top: 66px;
+      text-align: center;
+      padding: 0 28px;
+      width: 100%;
+    }
 
-  /* ─── Info ─── */
-  .profile-info {
-    margin-top: 68px;
-    text-align: center;
-    padding: 0 32px;
-    width: 100%;
-  }
+    .profile-info h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #1a1714;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
 
-  .profile-info h1 {
-    font-family: 'Inter', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1a1714;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-  }
+    .profile-info .bio {
+      font-size: 0.83rem;
+      color: rgba(0,0,0,0.42);
+      font-weight: 400;
+      line-height: 1.55;
+      margin-top: 8px;
+    }
 
-  .profile-info .bio {
-    font-size: 0.85rem;
-    color: rgba(0,0,0,0.45);
-    font-weight: 400;
-    letter-spacing: 0.01em;
-    line-height: 1.55;
-    margin-top: 10px;
-  }
+    /* ─── Links ─── */
+    .links-section {
+      width: 100%;
+      padding: 28px 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-  /* ─── Links ─── */
-  .links-section {
-    width: 100%;
-    padding: 32px 20px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
+    .link-btn {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      border-radius: 12px;
+      text-decoration: none;
+      overflow: hidden;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
 
-  .link-btn {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    border-radius: 10px;
-    text-decoration: none;
-    overflow: hidden;
-    transition: opacity 0.18s ease, transform 0.18s ease;
-  }
+    .link-btn:active { transform: scale(0.985); opacity: 0.85; }
 
-  .link-btn:hover { opacity: 0.85; transform: translateY(-1px); }
-  .link-btn:active { transform: scale(0.99); }
+    /* Primário */
+    .link-btn.primary {
+      background: #1a1714;
+      min-height: 60px;
+    }
 
-  /* CTA primário */
-  .link-btn.primary {
-    background: #1a1714;
-    min-height: 64px;
-    border: none;
-  }
+    .link-btn.primary .btn-icon {
+      width: 58px;
+      min-width: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      border-right: 1px solid rgba(255,255,255,0.07);
+    }
 
-  .link-btn.primary .btn-icon {
-    width: 64px;
-    min-width: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-    border-right: 1px solid rgba(255,255,255,0.08);
-  }
+    .link-btn.primary .btn-icon svg {
+      width: 17px;
+      height: 17px;
+      color: rgba(255,255,255,0.65);
+    }
 
-  .link-btn.primary .btn-icon svg {
-    width: 18px;
-    height: 18px;
-    color: rgba(255,255,255,0.7);
-  }
+    .link-btn.primary .btn-label {
+      flex: 1;
+      padding: 0 16px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #f5f2ee;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
 
-  .link-btn.primary .btn-label {
-    flex: 1;
-    padding: 0 18px;
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: #f5f2ee;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
+    .link-btn.primary .btn-arrow {
+      width: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.25);
+    }
 
-  .link-btn.primary .btn-arrow {
-    width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    color: rgba(255,255,255,0.3);
-  }
+    /* Secundário */
+    .link-btn.secondary {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.07);
+      min-height: 54px;
+    }
 
-  /* Botões secundários */
-  .link-btn.secondary {
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.08);
-    min-height: 56px;
-    border-radius: 10px;
-  }
+    .link-btn.secondary .btn-icon {
+      width: 52px;
+      min-width: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+    }
 
-  .link-btn.secondary .btn-icon {
-    width: 56px;
-    min-width: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: stretch;
-  }
+    .link-btn.secondary .btn-icon svg {
+      width: 15px;
+      height: 15px;
+      color: rgba(0,0,0,0.22);
+    }
 
-  .link-btn.secondary .btn-icon svg {
-    width: 16px;
-    height: 16px;
-    color: rgba(0,0,0,0.25);
-  }
+    .link-btn.secondary .btn-label {
+      flex: 1;
+      padding: 12px 4px 12px 0;
+      font-size: 0.82rem;
+      font-weight: 400;
+      color: rgba(0,0,0,0.65);
+      line-height: 1.4;
+    }
 
-  .link-btn.secondary .btn-label {
-    flex: 1;
-    padding: 14px 4px 14px 0;
-    font-size: 0.82rem;
-    font-weight: 300;
-    color: rgba(0,0,0,0.6);
-    letter-spacing: 0.02em;
-    line-height: 1.4;
-  }
+    .link-btn.secondary .btn-arrow {
+      width: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      color: rgba(0,0,0,0.15);
+    }
 
-  .link-btn.secondary .btn-arrow {
-    width: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    color: rgba(0,0,0,0.18);
-  }
+    /* ─── Footer ─── */
+    .page-footer {
+      margin-top: auto;
+      padding: 40px 0 32px;
+      text-align: center;
+    }
 
-  /* ─── Footer ─── */
-  .page-footer {
-    margin-top: auto;
-    padding: 44px 0 28px;
-    text-align: center;
-  }
+    .page-footer p {
+      font-size: 0.68rem;
+      color: rgba(0,0,0,0.22);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
 
-  .page-footer p {
-    font-size: 0.68rem;
-    color: rgba(0,0,0,0.25);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
+    .page-footer a {
+      color: rgba(0,0,0,0.35);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
 
-  .page-footer a {
-    color: rgba(0,0,0,0.4);
-    font-weight: 400;
-    text-decoration: none;
-    transition: color 0.2s;
-  }
+    .page-footer a:hover { color: rgba(0,0,0,0.6); }
 
-  .page-footer a:hover { color: rgba(0,0,0,0.7); }
+    /* ─── Animations ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-  /* ─── Animations ─── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .hero-section  { animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both 0s; }
-  .profile-info  { animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both 0.1s; }
-  .links-section { animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both 0.18s; }
-  .page-footer   { animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both 0.26s; }
-</style>
+    .hero-section  { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0s; }
+    .profile-info  { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.08s; }
+    .links-section { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.15s; }
+    .page-footer   { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.22s; }
+  </style>
+</head>
+<body>
 
 <div class="profile-page">
 
-  <!-- ── Hero: capa + avatar ── -->
+  <!-- Hero -->
   <div class="hero-section">
-
     <div class="hero-cover">
       {% if admin.cover_photo %}
         <img class="cover-img" src="{{ image_url(admin.cover_photo) }}" alt="Capa">
@@ -314,10 +298,9 @@
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- ── Nome e profissão ── -->
+  <!-- Info -->
   <div class="profile-info">
     <h1>{{ admin.company_name }}</h1>
     {% if admin.profession %}
@@ -325,7 +308,7 @@
     {% endif %}
   </div>
 
-  <!-- ── Links ── -->
+  <!-- Links -->
   <div class="links-section">
 
     <a href="{{ url_for('main.cliente_opcoes', salao_slug=admin.username) if customer_name else url_for('main.login_phone_screen', salao_slug=admin.username) }}"
@@ -364,11 +347,12 @@
 
   </div>
 
-  <!-- ── Footer ── -->
+  <!-- Footer -->
   <div class="page-footer">
     <p>Feito com ♥ <a href="https://poraqui.online" target="_blank">poraqui.online</a></p>
   </div>
 
 </div>
 
-{% endblock %}
+</body>
+</html>
