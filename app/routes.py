@@ -399,6 +399,28 @@ def dashboard_profile():
             except Exception as e:
                 current_app.logger.exception('Falha ao salvar foto de perfil: %s', e)
                 flash('Não foi possível salvar a foto de perfil.', 'danger')
+        cover = request.files.get('cover_photo')
+        if cover and cover.filename:
+            try:
+                result = cloudinary.uploader.upload(
+                    cover,
+                    folder="cover_photos",
+                    public_id=f"user_{current_user.id}_cover",
+                    overwrite=True,
+                    transformation=[
+                        {"width": 1200, "height": 400, "crop": "fill"},
+                        {"quality": "auto"},
+                        {"fetch_format": "auto"}
+                    ]
+                )
+
+                current_user.cover_photo = result["secure_url"]
+                changed = True
+
+            except Exception as e:
+                current_app.logger.exception('Falha ao salvar capa: %s', e)
+                flash('Não foi possível salvar a capa.', 'danger')
+
         if changed:
             db.session.commit()
             flash('Perfil atualizado com sucesso.', 'success')
@@ -478,9 +500,9 @@ def inject_customer_name():
 
 @main.app_context_processor
 def inject_profile_photo_helper():
-    def profile_photo_url(path: str | None):
+    def image_url(path: str | None, default: str = 'default.png'):
         if not path:
-            return url_for('static', filename='default.png')
+            return url_for('static', filename=default)
 
         p = str(path).strip()
 
@@ -493,7 +515,7 @@ def inject_profile_photo_helper():
         if p.startswith('static/'):
             p = p[len('static/'):]
         return url_for('static', filename=p)
-    return {'profile_photo_url': profile_photo_url}
+    return {'image_url': image_url}
 
 # ==========================
 # Billing/Plans helpers

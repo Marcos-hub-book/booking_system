@@ -8,7 +8,7 @@
   <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;background:#f2f3f5;">
     <img 
       id="profilePreview"
-      src="{{ profile_photo_url(current_user.profile_photo) }}" 
+      src="{{ image_url(current_user.profile_photo) }}" 
       alt="Foto" 
       style="width:100%;height:100%;object-fit:cover;"
       loading="lazy"
@@ -20,6 +20,24 @@
     
     <label>Nome do salão/clínica</label>
     <input type="text" name="company_name" value="{{ current_user.company_name }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
+
+    <label>Link Exclusivo</label>
+      <div onclick="copyLink(this)" title="Clique para copiar"
+          style="padding:10px 14px;border:1px solid #e3e7eb;border-radius:10px;background:#f8f9fa;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;user-select:none;">
+        <span style="font-size:0.9rem;color:#444;">poraqui.online/{{ current_user.username }}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+      </div>
+
+      <script>
+      function copyLink(el) {
+        navigator.clipboard.writeText('poraqui.online/{{ current_user.username }}');
+        const span = el.querySelector('span');
+        span.textContent = 'Copiado!';
+        setTimeout(() => span.textContent = 'poraqui.online/{{ current_user.username }}', 2000);
+      }
+      </script>
 
     <label>Nome completo</label>
     <input type="text" name="full_name" value="{{ current_user.full_name }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
@@ -43,6 +61,14 @@
       name="profile_photo" 
       accept="image/*" 
       onchange="previewImage(event)"
+      style="padding:8px;border:1px solid #e3e7eb;border-radius:10px;"
+    >
+    
+    <label>Foto de Capa</label>
+    <input 
+      type="file" 
+      name="cover_photo" 
+      accept="image/*" 
       style="padding:8px;border:1px solid #e3e7eb;border-radius:10px;"
     >
 

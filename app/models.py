@@ -33,6 +33,7 @@ class User(db.Model):
     cidade = db.Column(db.String(64))
     estado = db.Column(db.String(2))
     profile_photo = db.Column(db.String(256))  # caminho da foto
+    cover_photo = db.Column(db.String(256))  # caminho da capa
     plan = db.Column(db.String(32), default="free")
     # Billing/trial fields
     cpf_encrypted = db.Column(db.String(256))
