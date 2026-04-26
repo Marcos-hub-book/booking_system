@@ -1,36 +1,139 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:14px;">
-  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Adicionar local</h2>
-  <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
-    <label>Nome do local</label>
-    <input type="text" name="name" required style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
 
-    <div style="margin-top:8px;font-weight:600;">Dias e horários</div>
-    <div style="max-height:60vh;overflow-y:auto;padding-right:4px;border:1px solid #f0f2f4;border-radius:10px;">
-      {% set dias = ['Seg','Ter','Qua','Qui','Sex','Sab','Dom'] %}
+<style>
+  .sch-card{background:#fff;border:1px solid #eef1f4;border-radius:12px;overflow:hidden;margin-bottom:8px;transition:border-color 0.15s}
+  .sch-card.active{border-color:#d1d5db}
+  .sch-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
+  .sch-toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+  .sch-toggle input{opacity:0;width:0;height:0;position:absolute}
+  .sch-track{position:absolute;inset:0;border-radius:11px;background:#d1d5db;transition:background 0.2s;cursor:pointer}
+  .sch-toggle input:checked+.sch-track{background:#232323}
+  .sch-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+  .sch-toggle input:checked~.sch-thumb{transform:translateX(18px)}
+  .sch-dayname{font-size:0.9rem;font-weight:600;color:#232323;min-width:72px}
+  .sch-summary{font-size:0.82rem;color:#9ca3af;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sch-body{display:none;padding:0 16px 14px;border-top:1px solid #f3f4f6}
+  .sch-card.active .sch-body{display:block}
+  .sch-section-label{font-size:0.7rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin:12px 0 6px}
+  .sch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sch-field label{font-size:0.78rem;color:#6b7280;display:block;margin-bottom:4px}
+  .sch-field input[type=time]{width:100%;padding:8px 10px;border:1px solid #e3e7eb;border-radius:8px;background:#f9fafb;font-size:0.88rem;box-sizing:border-box;color:#232323}
+  .sch-field input[type=time]:focus{outline:none;border-color:#9ca3af;background:#fff}
+  .sch-divider{height:1px;background:#f3f4f6;margin:10px 0 4px}
+
+  .field-label{display:block;font-size:0.8rem;color:#6b7280;margin-bottom:5px}
+  .text-input{width:100%;padding:10px 12px;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;box-sizing:border-box;background:#fff;color:#232323;transition:border-color 0.15s}
+  .text-input:focus{outline:none;border-color:#9ca3af}
+  .btn-save{background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:0.9rem;cursor:pointer}
+  .btn-cancel{background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:10px 16px;font-size:0.9rem;color:#232323;text-decoration:none;display:inline-block}
+</style>
+
+<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:16px;">
+
+  <!-- Cabeçalho -->
+  <div style="display:flex;align-items:center;gap:12px;padding-top:4px;">
+    <a href="{{ url_for('main.locations_list') }}" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e3e7eb;border-radius:10px;background:#fff;text-decoration:none;flex-shrink:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <h2 style="font-weight:600;font-size:1.15rem;margin:0;color:#232323;">Novo local</h2>
+  </div>
+
+  <form method="POST" style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Nome -->
+    <div>
+      <label class="field-label">Nome do local</label>
+      <input class="text-input" type="text" name="name" placeholder="Ex: Clínica Centro" required>
+    </div>
+
+    <!-- Agenda semanal -->
+    <div>
+      <span class="field-label" style="margin-bottom:10px;display:block;">Dias e horários de atendimento</span>
+
+      {% set dias = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'] %}
       {% for i in range(7) %}
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 10px;border-bottom:1px solid #f3f4f6;">
-        <label style="width:44px;font-weight:600;">{{ dias[i] }}</label>
-        <input type="checkbox" name="workdays" value="{{ i }}">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;flex:1 1 220px;align-items:center;">
-          <span style="color:#6b7280;font-size:0.92rem;">Início</span>
-          <input type="time" name="start_{{ i }}" style="padding:8px;border:1px solid #e3e7eb;border-radius:8px;flex:1 1 120px;min-width:120px;">
-          <span style="color:#6b7280;font-size:0.92rem;">Fim</span>
-          <input type="time" name="end_{{ i }}" style="padding:8px;border:1px solid #e3e7eb;border-radius:8px;flex:1 1 120px;min-width:120px;">
-          <span style="color:#6b7280;font-size:0.92rem;">Intervalo</span>
-          <input type="time" name="break_start_{{ i }}" style="padding:8px;border:1px solid #e3e7eb;border-radius:8px;flex:1 1 120px;min-width:120px;">
-          <span style="color:#6b7280;font-size:0.92rem;">até</span>
-          <input type="time" name="break_end_{{ i }}" style="padding:8px;border:1px solid #e3e7eb;border-radius:8px;flex:1 1 120px;min-width:120px;">
+      <div class="sch-card" id="sch-{{ i }}">
+        <div class="sch-header" onclick="toggleDay({{ i }})">
+          <label class="sch-toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" name="workdays" value="{{ i }}"
+              onchange="onToggle({{ i }}, this.checked)">
+            <span class="sch-track"></span>
+            <span class="sch-thumb"></span>
+          </label>
+          <span class="sch-dayname">{{ dias[i] }}</span>
+          <span class="sch-summary" id="sum-{{ i }}">Fechado</span>
+        </div>
+        <div class="sch-body">
+          <div class="sch-section-label">Horário de atendimento</div>
+          <div class="sch-grid">
+            <div class="sch-field">
+              <label>Início</label>
+              <input type="time" name="start_{{ i }}" id="s-{{ i }}" onchange="updateSummary({{ i }})">
+            </div>
+            <div class="sch-field">
+              <label>Fim</label>
+              <input type="time" name="end_{{ i }}" id="e-{{ i }}" onchange="updateSummary({{ i }})">
+            </div>
+          </div>
+          <div class="sch-divider"></div>
+          <div class="sch-section-label">Intervalo (opcional)</div>
+          <div class="sch-grid">
+            <div class="sch-field">
+              <label>Início do intervalo</label>
+              <input type="time" name="break_start_{{ i }}" id="bs-{{ i }}" onchange="updateSummary({{ i }})">
+            </div>
+            <div class="sch-field">
+              <label>Fim do intervalo</label>
+              <input type="time" name="break_end_{{ i }}" id="be-{{ i }}" onchange="updateSummary({{ i }})">
+            </div>
+          </div>
         </div>
       </div>
       {% endfor %}
     </div>
 
-    <div style="position:sticky;bottom:0;background:#f7f7f8;padding:12px 0;display:flex;gap:10px;justify-content:flex-end;">
-      <a href="{{ url_for('main.locations_list') }}" style="background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:10px 14px;text-decoration:none;color:#232323;">Cancelar</a>
-      <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 14px;">Salvar</button>
+    <!-- Rodapé fixo -->
+    <div style="position:sticky;bottom:0;background:#f7f7f8;padding:12px 0;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f0f2f4;margin-top:4px;">
+      <a href="{{ url_for('main.locations_list') }}" class="btn-cancel">Cancelar</a>
+      <button type="submit" class="btn-save">Salvar</button>
     </div>
+
   </form>
 </div>
+
+<script>
+  function toggleDay(i){
+    const card = document.getElementById('sch-'+i);
+    if(card.classList.contains('active')){
+      const body = card.querySelector('.sch-body');
+      body.style.display = (body.style.display === 'none') ? 'block' : 'none';
+    }
+  }
+  function onToggle(i, checked){
+    const card = document.getElementById('sch-'+i);
+    if(checked){
+      card.classList.add('active');
+      card.querySelector('.sch-body').style.display = 'block';
+    } else {
+      card.classList.remove('active');
+      card.querySelector('.sch-body').style.display = 'none';
+    }
+    updateSummary(i);
+  }
+  function updateSummary(i){
+    const card = document.getElementById('sch-'+i);
+    const chk = card.querySelector('input[type=checkbox]');
+    const s  = document.getElementById('s-'+i).value;
+    const e  = document.getElementById('e-'+i).value;
+    const bs = document.getElementById('bs-'+i).value;
+    const be = document.getElementById('be-'+i).value;
+    const sum = document.getElementById('sum-'+i);
+    if(!chk.checked){ sum.textContent = 'Fechado'; return; }
+    let txt = (s && e) ? s+' – '+e : 'Horário não definido';
+    if(bs && be) txt += ' · Pausa '+bs+'–'+be;
+    sum.textContent = txt;
+  }
+</script>
+
 {% endblock %}

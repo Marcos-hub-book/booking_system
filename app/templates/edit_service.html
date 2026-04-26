@@ -1,77 +1,127 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="display: flex; align-items: center; margin-bottom: 32px;">
-    <a href="{{ url_for('main.services_list') }}" 
-        style="
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            font-size: 2rem;
-            color: #232323;
-            text-decoration: none;
-            background: none;
-            border: none;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            z-index: 1000;
-        "
-        onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
-        onmouseout="this.style.background='transparent'; this.style.transform='none';">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <path d="M15 18l-6-6 6-6"/>
-        </svg>
-        <span style="position: absolute; left: -9999px;">Voltar</span>
+
+<style>
+  .field-label{display:block;font-size:0.8rem;color:#6b7280;margin-bottom:5px}
+  .text-input{width:100%;padding:10px 12px;border:1px solid #e3e7eb;border-radius:10px;font-size:0.95rem;box-sizing:border-box;background:#fff;color:#232323;transition:border-color 0.15s}
+  .text-input:focus{outline:none;border-color:#9ca3af}
+  .input-with-unit{display:flex;align-items:center;border:1px solid #e3e7eb;border-radius:10px;overflow:hidden;background:#fff;transition:border-color 0.15s}
+  .input-with-unit:focus-within{border-color:#9ca3af}
+  .input-with-unit input{border:none;outline:none;padding:10px 12px;font-size:0.95rem;background:transparent;color:#232323;flex:1;min-width:0}
+  .input-with-unit .unit{padding:10px 14px;background:#f9fafb;color:#6b7280;font-size:0.88rem;border-left:1px solid #e3e7eb;white-space:nowrap}
+  .unit-prefix{border-left:none!important;border-right:1px solid #e3e7eb!important}
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip-label{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid #e3e7eb;border-radius:10px;background:#fff;cursor:pointer;font-size:0.88rem;color:#374151;transition:border-color 0.15s,background 0.15s;user-select:none}
+  .chip-label input[type=checkbox]{display:none}
+  .chip-label.checked{border-color:#232323;background:#f5f5f5;color:#232323;font-weight:600}
+  .chip-dot{width:8px;height:8px;border-radius:50%;background:#d1d5db;transition:background 0.15s;flex-shrink:0}
+  .chip-label.checked .chip-dot{background:#232323}
+  .single-prof-card{padding:12px 14px;border:1px solid #e3e7eb;border-radius:10px;background:#f9fafb}
+  .single-prof-card .name{font-weight:600;font-size:0.9rem;color:#232323}
+  .single-prof-card .sub{font-size:0.82rem;color:#9ca3af;margin-top:2px}
+  .hint{font-size:0.8rem;color:#9ca3af;margin-top:5px}
+  .btn-save{background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:0.9rem;cursor:pointer}
+  .btn-cancel{background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:10px 16px;font-size:0.9rem;color:#232323;text-decoration:none;display:inline-block}
+</style>
+
+<div style="width:100%;max-width:520px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column;gap:16px;">
+
+  <!-- Cabeçalho -->
+  <div style="display:flex;align-items:center;gap:12px;padding-top:4px;">
+    <a href="{{ url_for('main.services_list') }}" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e3e7eb;border-radius:10px;background:#fff;text-decoration:none;flex-shrink:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
     </a>
-</div>
-<h2>Editar Serviço</h2>
-<form method="POST">
+    <h2 style="font-weight:600;font-size:1.15rem;margin:0;color:#232323;">Editar serviço</h2>
+  </div>
+
+  <form method="POST" style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Nome -->
     <div>
-        <label for="name">Nome do Serviço:</label>
-        <input type="text" id="name" name="name" value="{{ service.name }}" required>
+      <label class="field-label">Nome do serviço</label>
+      <input class="text-input" type="text" id="name" name="name" value="{{ service.name }}" required>
     </div>
-    <div>
-        <label for="duration">Duração (minutos):</label>
-        <input type="number" id="duration" name="duration" min="1" value="{{ service.duration }}" required>
-    </div>
-    <div>
-        <label for="price">Preço (R$):</label>
-        <input type="number" id="price" name="price" min="0" step="0.01" value="{{ service.price }}" required>
-    </div>
-    <div>
-        <label>Profissionais:</label><br>
-        {% if (current_user.plan or 'free')|lower == 'basic' %}
-          <div style="margin-top:8px;padding:10px 12px;border:1px solid #e3e7eb;border-radius:8px;background:#f9fafb;display:inline-block;">
-            <div style="font-weight:500;display:inline;">{{ professionals[0].name }}</div>
-            <span style="color:#6b7280;font-size:0.92rem;margin-left:8px;">(Plano Basic)</span>
-            <input type="hidden" name="professional_ids" value="{{ professionals[0].id }}">
-          </div>
-        {% else %}
-        {% for professional in professionals %}
-            <label style="margin-right: 10px;">
-                <input type="checkbox" name="professional_ids" value="{{ professional.id }}"
-                    {% if professional.id|string in selected_ids %}checked{% endif %}>
-                {{ professional.name }}
-            </label>
-        {% endfor %}
-        {% endif %}
-    </div>
-    {% if (current_user.plan or 'free')|lower == 'basic' %}
-    <div style="margin-top: 14px;">
-        <label>Locais onde este serviço é oferecido:</label>
-        {% if locations and locations|length > 0 %}
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-            {% for loc in locations %}
-            <label style="background: #f8f8f8; border: 1px solid #e3e7eb; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" name="location_ids" value="{{ loc.id }}" style="margin-right: 8px;"
-                    {% if selected_location_ids and (loc.id|string) in selected_location_ids %}checked{% endif %}>
-                <span>{{ loc.name }}</span>
-            </label>
-            {% endfor %}
+
+    <!-- Duração e Preço -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <label class="field-label">Duração</label>
+        <div class="input-with-unit">
+          <input type="number" id="duration" name="duration" min="15" step="15" value="{{ service.duration }}" required>
+          <span class="unit">min</span>
         </div>
-        {% else %}
-        <p style="color:#7a7a7a;">Nenhum local cadastrado. Crie Locais no menu lateral.</p>
-        {% endif %}
+      </div>
+      <div>
+        <label class="field-label">Preço</label>
+        <div class="input-with-unit">
+          <span class="unit unit-prefix">R$</span>
+          <input type="number" id="price" name="price" min="0" step="0.01" value="{{ service.price }}" required>
+        </div>
+        <p class="hint">0 exibe "Sob consulta"</p>
+      </div>
+    </div>
+
+    <!-- Profissionais -->
+    <div>
+      <label class="field-label">Profissionais</label>
+      {% if (current_user.plan or 'free')|lower == 'basic' %}
+        <div class="single-prof-card">
+          <div class="name">{{ professionals[0].name }}</div>
+          <div class="sub">Plano Basic: profissional padrão</div>
+          <input type="hidden" name="professional_ids" value="{{ professionals[0].id }}">
+        </div>
+      {% else %}
+        <div class="chip-group">
+          {% for professional in professionals %}
+          <label class="chip-label {% if professional.id|string in selected_ids %}checked{% endif %}" id="chip-prof-{{ professional.id }}">
+            <input type="checkbox" name="professional_ids" value="{{ professional.id }}"
+              {% if professional.id|string in selected_ids %}checked{% endif %}
+              onchange="toggleChip(this, 'chip-prof-{{ professional.id }}')">
+            <span class="chip-dot"></span>
+            {{ professional.name }}
+          </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Locais (plano basic) -->
+    {% if (current_user.plan or 'free')|lower == 'basic' %}
+    <div>
+      <label class="field-label">Locais onde este serviço é oferecido</label>
+      {% if locations and locations|length > 0 %}
+        <div class="chip-group">
+          {% for loc in locations %}
+          <label class="chip-label {% if selected_location_ids and (loc.id|string) in selected_location_ids %}checked{% endif %}" id="chip-loc-{{ loc.id }}">
+            <input type="checkbox" name="location_ids" value="{{ loc.id }}"
+              {% if selected_location_ids and (loc.id|string) in selected_location_ids %}checked{% endif %}
+              onchange="toggleChip(this, 'chip-loc-{{ loc.id }}')">
+            <span class="chip-dot"></span>
+            {{ loc.name }}
+          </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.88rem;color:#9ca3af;margin:4px 0 0;">Nenhum local cadastrado. Crie locais no menu lateral.</p>
+      {% endif %}
     </div>
     {% endif %}
-    <button type="submit">Salvar</button>
-</form>
+
+    <!-- Rodapé fixo -->
+    <div style="position:sticky;bottom:0;background:#f7f7f8;padding:12px 0;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f0f2f4;margin-top:4px;">
+      <a href="{{ url_for('main.services_list') }}" class="btn-cancel">Cancelar</a>
+      <button type="submit" class="btn-save">Salvar</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  function toggleChip(input, chipId){
+    const chip = document.getElementById(chipId);
+    if(input.checked){ chip.classList.add('checked'); }
+    else { chip.classList.remove('checked'); }
+  }
+</script>
+
 {% endblock %}
