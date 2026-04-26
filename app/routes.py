@@ -17,6 +17,7 @@ from werkzeug.utils import secure_filename
 import requests
 import locale
 import cloudinary.uploader
+import pytz
 
 
 main = Blueprint('main', __name__)
@@ -2195,12 +2196,19 @@ def api_get_times(salao_slug):
         d = datetime.strptime(date_str, '%Y-%m-%d').date()
     except Exception:
         return jsonify({'times': []})
-    
+    BUFFER_MINUTES = 30
+    tz = pytz.timezone('America/Sao_Paulo')
+    now = datetime.now(tz).replace(tzinfo=None)
+    now_with_buffer = now + timedelta(minutes=BUFFER_MINUTES)
     start_h, end_h = _period_range(period)
     slots = []
     cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
     end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+
     while cur + timedelta(minutes=service.duration) <= end_dt:
+        if d == now.date() and cur < now_with_buffer:
+            cur += timedelta(minutes=15)
+            continue
         if _is_slot_available(prof, cur, service.duration, admin, location_id):
             slots.append(cur.strftime('%H:%M'))
         cur += timedelta(minutes=15)
