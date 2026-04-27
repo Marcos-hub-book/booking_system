@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:900px;margin:0 auto;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
+    <a href="{{ url_for('main.dashboard') }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e3e7eb;border-radius:8px;background:#fff;color:#232323;text-decoration:none;font-weight:600;">◀ Voltar</a>
+    <div>
+      <div style="font-size:0.9rem;color:#6b7280;">Relatórios</div>
+      <h1 style="margin:4px 0 0;font-size:1.8rem;font-weight:700;color:#232323;">Visão geral</h1>
+    </div>
+    <div style="width:56px;"></div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+    <a href="{{ url_for('main.dashboard_relatorios', period='hoje', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='hoje' else '' }}">Hoje</a>
+    <a href="{{ url_for('main.dashboard_relatorios', period='semana', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='semana' else '' }}">Semana</a>
+    <a href="{{ url_for('main.dashboard_relatorios', period='mes', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='mes' else '' }}">Mês</a>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=prev_offset) }}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e3e7eb;color:#232323;text-decoration:none;">◀</a>
+      <div style="font-size:1rem;font-weight:600;color:#111827;">{{ period_label }}</div>
+    </div>
+    <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=next_offset) }}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e3e7eb;color:#232323;text-decoration:none;">▶</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Agendamentos</div>
+      <div style="font-size:2rem;font-weight:700;color:#111827;">{{ total }}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Concluídos</div>
+      <div style="font-size:2rem;font-weight:700;color:#10b981;">{{ concluidos }}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Pendentes</div>
+      <div style="font-size:2rem;font-weight:700;color:#f59e0b;">{{ pendentes }}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Cancelados</div>
+      <div style="font-size:2rem;font-weight:700;color:#ef4444;">{{ cancelados }}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:32px;">
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Faturamento realizado</div>
+      <div style="font-size:2rem;font-weight:700;color:#111827;">R$ {{ '%.2f'|format(faturado) }}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Previsto (concluídos)</div>
+      <div style="font-size:2rem;font-weight:700;color:#0ea5e9;">R$ {{ '%.2f'|format(previsto_concluidos) }}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Previsto (pendentes)</div>
+      <div style="font-size:2rem;font-weight:700;color:#6b7280;">R$ {{ '%.2f'|format(previsto_pendentes) }}</div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
+    <div style="font-size:1rem;font-weight:600;color:#111827;margin-bottom:12px;">Detalhes do período</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+      <div style="min-width:180px;color:#6b7280;"><strong>Início:</strong> {{ start.strftime('%d/%m/%Y') }}</div>
+      <div style="min-width:180px;color:#6b7280;"><strong>Fim:</strong> {{ end.strftime('%d/%m/%Y') }}</div>
+    </div>
+  </div>
+</div>
+
+<div id="drawer-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:99;"></div>
+
+<div id="side-drawer" style="position:fixed;top:0;right:0;width:280px;height:100%;background:#fff;border-left:1px solid #eef1f4;box-shadow:-8px 0 40px rgba(0,0,0,0.12);z-index:100;display:flex;flex-direction:column;transform:translateX(110%);transition:transform 0.3s ease;overflow:hidden;">
+  <div style="padding:24px 20px 20px;background:#232323;color:#fff;position:relative;">
+    <button id="close-drawer" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.12);border:none;border-radius:8px;width:32px;height:32px;color:#fff;cursor:pointer;">✕</button>
+    <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#fff;">{{ current_user.name[0]|upper if current_user.name else 'U' }}</div>
+    <div style="margin-top:12px;font-size:1rem;font-weight:600;">{{ current_user.name or 'Meu Negócio' }}</div>
+    <div style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:600;text-transform:uppercase;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.9);padding:3px 8px;border-radius:999px;margin-top:6px;">Plano {{ (current_user.plan or 'free')|capitalize }}</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px 0;">
+    <div style="padding:12px 20px 4px;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Geral</div>
+    <a href="{{ url_for('main.dashboard') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Dashboard</a>
+    <a href="{{ url_for('main.dashboard_relatorios') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Relatórios</a>
+    <a href="{{ url_for('main.services_list') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Serviços</a>
+    {% if (current_user.plan or 'free')|lower != 'basic' %}
+    <a href="{{ url_for('main.professionals_list') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Profissionais</a>
+    {% endif %}
+    {% if (current_user.plan or 'free')|lower == 'basic' %}
+    <a href="{{ url_for('main.locations_list') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Locais de atendimento</a>
+    {% endif %}
+    <div style="height:1px;background:#f0f2f4;margin:8px 20px;"></div>
+    <div style="padding:12px 20px 4px;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Conta</div>
+    <a href="{{ url_for('main.billing') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Plano e cobrança</a>
+    <form method="POST" action="{{ url_for('main.logout') }}" style="margin-top:12px;padding:0 20px;">
+      <button type="submit" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:10px;padding:12px 14px;cursor:pointer;">Sair</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const btnMenu = document.getElementById('btn-menu');
+    const drawer = document.getElementById('side-drawer');
+    const overlay = document.getElementById('drawer-overlay');
+    const closeDrawer = document.getElementById('close-drawer');
+
+    function openDrawer(){ drawer.style.transform='translateX(0)'; overlay.style.display='block'; }
+    function closeDrawerFn(){ drawer.style.transform='translateX(110%)'; overlay.style.display='none'; }
+
+    btnMenu && btnMenu.addEventListener('click', (e)=>{ e.stopPropagation(); openDrawer(); });
+    closeDrawer && closeDrawer.addEventListener('click', closeDrawerFn);
+    overlay && overlay.addEventListener('click', closeDrawerFn);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeDrawerFn(); });
+  })();
+</script>
+{% endblock %}

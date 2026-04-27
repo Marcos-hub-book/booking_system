@@ -1196,6 +1196,117 @@ def dashboard_cancelar_agendamento(agendamento_id):
     date_str = agendamento.appointment_time.strftime('%Y-%m-%d')
     return redirect(url_for('main.dashboard', data=date_str))
 
+@main.route('/dashboard/concluir_agendamento/<int:agendamento_id>', methods=['POST'])
+@login_required
+def dashboard_concluir_agendamento(agendamento_id):
+    agendamento = Appointment.query.join(Professional).filter(
+        Appointment.id == agendamento_id,
+        Professional.admin_id == current_user.id
+    ).first_or_404()
+
+    if not agendamento.ativo:
+        flash('Não é possível concluir um agendamento cancelado.', 'warning')
+        return redirect(url_for('main.dashboard', data=agendamento.appointment_time.strftime('%Y-%m-%d')))
+
+    if request.form.get('realizado') != 'on':
+        flash('Confirme que o atendimento foi realizado para concluir o agendamento.', 'warning')
+        return redirect(url_for('main.dashboard', data=agendamento.appointment_time.strftime('%Y-%m-%d')))
+
+    valor_real_raw = (request.form.get('valor_real') or '').strip().replace(',', '.')
+    if not valor_real_raw:
+        flash('Informe o valor real do atendimento.', 'warning')
+        return redirect(url_for('main.dashboard', data=agendamento.appointment_time.strftime('%Y-%m-%d')))
+
+    try:
+        valor_real = Decimal(valor_real_raw)
+    except Exception:
+        flash('Valor inválido. Use apenas números e, se necessário, separador decimal.', 'warning')
+        return redirect(url_for('main.dashboard', data=agendamento.appointment_time.strftime('%Y-%m-%d')))
+
+    forma_pagamento = (request.form.get('forma_pagamento') or '').strip()
+    agendamento.concluido = True
+    agendamento.valor_real = valor_real
+    agendamento.forma_pagamento = forma_pagamento or None
+    db.session.commit()
+
+    customer_name = agendamento.customer.name if agendamento.customer else 'Bloqueio'
+    service_name = agendamento.service.name if agendamento.service else 'horário'
+    message = f"Atendimento concluído: {customer_name} para {service_name} de {agendamento.appointment_time.strftime('%d/%m %H:%M')} - R${valor_real:.2f}."
+    create_notification(current_user.id, message, related_id=agendamento.id, related_type='appointment')
+
+    flash('Agendamento concluído e valor registrado.', 'success')
+    return redirect(url_for('main.dashboard', data=agendamento.appointment_time.strftime('%Y-%m-%d')))
+
+@main.route('/dashboard/relatorios', methods=['GET'])
+@login_required
+def dashboard_relatorios():
+    if current_user.role != 'admin':
+        abort(403)
+
+    period = request.args.get('period', 'hoje')
+    offset = request.args.get('offset', type=int, default=0)
+    today = datetime.today().date()
+
+    def month_start(year, month):
+        return datetime(year, month, 1).date()
+
+    def month_end(year, month):
+        next_month = month + 1
+        next_year = year
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+        return (datetime(next_year, next_month, 1) - timedelta(days=1)).date()
+
+    if period == 'semana':
+        target = today + timedelta(weeks=offset)
+        start = target - timedelta(days=target.weekday())
+        end = start + timedelta(days=6)
+        period_label = f"Semana de {start.strftime('%d/%m')} a {end.strftime('%d/%m')}"
+    elif period == 'mes':
+        current_year = today.year
+        current_month = today.month + offset
+        year_offset = (current_month - 1) // 12
+        month = ((current_month - 1) % 12) + 1
+        year = current_year + year_offset
+        start = month_start(year, month)
+        end = month_end(year, month)
+        period_label = f"Mês de {start.strftime('%m/%Y')}"
+    else:
+        target = today + timedelta(days=offset)
+        start = target
+        end = target
+        period_label = target.strftime('%d/%m/%Y')
+
+    query = Appointment.query.options(
+        joinedload(Appointment.service),
+        joinedload(Appointment.professional)
+    ).join(Professional).filter(
+        Professional.admin_id == current_user.id,
+        func.date(Appointment.appointment_time) >= start,
+        func.date(Appointment.appointment_time) <= end
+    )
+
+    appointments = query.order_by(Appointment.appointment_time.asc()).all()
+    total = len(appointments)
+    cancelados = sum(1 for a in appointments if not a.ativo)
+    concluidos = sum(1 for a in appointments if a.concluido)
+    pendentes = sum(1 for a in appointments if a.ativo and not a.concluido)
+    faturado = sum(float(a.valor_real) if a.valor_real is not None else float(a.service.price) if a.service else 0 for a in appointments if a.concluido)
+    previsto_concluidos = sum(float(a.valor_real) if a.valor_real is not None else float(a.service.price) if a.service else 0 for a in appointments if a.concluido)
+    previsto_pendentes = sum(float(a.service.price) if a.service else 0 for a in appointments if a.ativo and not a.concluido)
+
+    prev_offset = offset - 1
+    next_offset = offset + 1
+
+    return render_template('dashboard_relatorios.html', period=period, period_label=period_label,
+                           offset=offset, prev_offset=prev_offset, next_offset=next_offset,
+                           total=total, cancelados=cancelados, concluidos=concluidos,
+                           pendentes=pendentes, faturado=faturado,
+                           previsto_concluidos=previsto_concluidos,
+                           previsto_pendentes=previsto_pendentes,
+                           start=start, end=end)
+
 # Rota para retornar horários disponíveis (slots) para agendamento
 @main.route('/dashboard/available_times', methods=['GET'])
 @login_required

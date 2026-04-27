@@ -316,6 +316,15 @@
       </a>
       {% endif %}
 
+      <a href="{{ url_for('main.dashboard_relatorios') }}" class="drawer-item">
+        <div class="drawer-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6h6v6m-8 0h10M6 21h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/>
+          </svg>
+        </div>
+        Relatórios
+      </a>
+
       <div class="drawer-divider"></div>
       <div class="drawer-section-label">Conta</div>
 
@@ -423,11 +432,16 @@
               </div>
               <div class="actions">
                 {% if ag.ativo %}
-                <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;" onsubmit="return confirm('Confirmar cancelamento deste agendamento?');">
-                  <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:4px 8px;font-size:0.85rem;" onclick="event.stopPropagation();">Cancelar</button>
-                </form>
+                  {% if ag.concluido %}
+                    <span style="background:#10b981;color:#fff;border-radius:999px;padding:5px 10px;font-size:0.8rem;font-weight:600;">Concluído</span>
+                  {% else %}
+                    <button type="button" class="btn-concluir" data-id="{{ ag.id }}" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-size:0.85rem;cursor:pointer;" onclick="event.stopPropagation();">Concluir</button>
+                    <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;" onsubmit="return confirm('Confirmar cancelamento deste agendamento?');">
+                      <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:4px 8px;font-size:0.85rem;" onclick="event.stopPropagation();">Cancelar</button>
+                    </form>
+                  {% endif %}
                 {% else %}
-                <span style="color:#d32f2f;font-weight:500;">Cancelado</span>
+                  <span style="color:#ef4444;font-weight:500;">Cancelado</span>
                 {% endif %}
               </div>
             </div>
@@ -511,6 +525,34 @@
       <div style="display:flex;justify-content:flex-end;gap:8px;">
         <button type="button" id="close-block" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;">Cancelar</button>
         <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Concluir Agendamento -->
+<div id="modal-concluir" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:96;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:18px;width:90%;max-width:420px;">
+    <h3 style="margin:0 0 12px;">Concluir atendimento</h3>
+    <form id="form-concluir" method="post" action="" style="display:flex;flex-direction:column;gap:10px;">
+      <label style="font-size:0.9rem;font-weight:600;">Valor real do atendimento</label>
+      <input name="valor_real" id="concluir-valor_real" type="text" placeholder="R$ 0,00" style="padding:10px;border-radius:10px;border:1px solid #e3e7eb;">
+      <label style="font-size:0.9rem;font-weight:600;">Forma de pagamento</label>
+      <select name="forma_pagamento" style="padding:10px;border-radius:10px;border:1px solid #e3e7eb;">
+        <option value="">Selecione</option>
+        <option value="Dinheiro">Dinheiro</option>
+        <option value="Cartão de débito">Cartão de débito</option>
+        <option value="Cartão de crédito">Cartão de crédito</option>
+        <option value="Pix">Pix</option>
+        <option value="Outro">Outro</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.95rem;">
+        <input type="checkbox" name="realizado" id="concluir-realizado">
+        Atendimento realizado
+      </label>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" id="close-concluir" style="background:#fff;border:1px solid #e3e7eb;border-radius:8px;padding:10px 14px;cursor:pointer;">Cancelar</button>
+        <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;">Salvar</button>
       </div>
     </form>
   </div>
@@ -658,6 +700,33 @@
     const btnAddAppointment = document.getElementById('btn-add-appointment');
     const closeBlock = document.getElementById('close-block');
     const closeAppt = document.getElementById('close-appt');
+    const modalConcluir = document.getElementById('modal-concluir');
+    const closeConcluir = document.getElementById('close-concluir');
+    const formConcluir = document.getElementById('form-concluir');
+
+    function openConcluirModal(id) {
+      if (!formConcluir) return;
+      formConcluir.action = `/dashboard/concluir_agendamento/${id}`;
+      modalConcluir.style.display = 'flex';
+    }
+
+    function closeConcluirModal() {
+      if (!modalConcluir) return;
+      modalConcluir.style.display = 'none';
+    }
+
+    document.querySelectorAll('.btn-concluir').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (id) openConcluirModal(id);
+      });
+    });
+
+    closeConcluir && closeConcluir.addEventListener('click', closeConcluirModal);
+    modalConcluir && modalConcluir.addEventListener('click', (e) => {
+      if (e.target === modalConcluir) closeConcluirModal();
+    });
 
     fab && fab.addEventListener('click', (e)=>{
       e.stopPropagation();

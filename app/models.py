@@ -129,6 +129,9 @@ class Appointment(db.Model):
     ativo = db.Column(db.Boolean, default=True)
     descricao = db.Column(db.String(255))
     duracao = db.Column(db.Integer)
+    concluido = db.Column(db.Boolean, default=False, nullable=False)
+    valor_real = db.Column(db.Numeric(10, 2), nullable=True)
+    forma_pagamento = db.Column(db.String(50), nullable=True)
 
     customer = db.relationship('Customer', backref='appointments')
     professional = db.relationship('Professional', backref='appointments')
