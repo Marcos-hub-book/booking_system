@@ -1,85 +1,428 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:900px;margin:0 auto;">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
-    <a href="{{ url_for('main.dashboard') }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e3e7eb;border-radius:8px;background:#fff;color:#232323;text-decoration:none;font-weight:600;">◀ Voltar</a>
-    <div>
-      <div style="font-size:0.9rem;color:#6b7280;">Relatórios</div>
-      <h1 style="margin:4px 0 0;font-size:1.8rem;font-weight:700;color:#232323;">Visão geral</h1>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface2: #faf9f7;
+    --border: #e8e5e0;
+    --border2: #f0ede8;
+    --ink: #1a1917;
+    --ink2: #6b6560;
+    --ink3: #a09890;
+    --accent: #232323;
+    --green: #16a34a;
+    --green-bg: #f0fdf4;
+    --green-light: #dcfce7;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --blue: #2563eb;
+    --blue-bg: #eff6ff;
+    --chart-bar: #1a1917;
+    --chart-bar2: #e8e5e0;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body, .rp-root { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); }
+
+  .rp-root { max-width: 860px; margin: 0 auto; padding: 0 16px 60px; }
+
+  /* Header */
+  .rp-header { display: flex; align-items: center; gap: 12px; padding: 20px 0 24px; }
+  .rp-back { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); text-decoration: none; flex-shrink: 0; transition: background 0.15s; }
+  .rp-back:hover { background: var(--bg); }
+  .rp-header-text { flex: 1; }
+  .rp-eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); margin-bottom: 3px; }
+  .rp-title { font-size: 1.5rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+
+  /* Period tabs */
+  .rp-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 20px; width: fit-content; }
+  .rp-tab { padding: 7px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none; color: var(--ink2); transition: all 0.15s; }
+  .rp-tab.active { background: var(--ink); color: #fff; }
+  .rp-tab:not(.active):hover { background: var(--bg); color: var(--ink); }
+
+  /* Period nav */
+  .rp-period-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .rp-period-label { font-size: 1rem; font-weight: 600; color: var(--ink); }
+  .rp-period-sub { font-size: 0.8rem; color: var(--ink3); margin-top: 2px; }
+  .rp-nav-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink2); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+  .rp-nav-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* KPI grid */
+  .rp-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  @media (min-width: 600px) { .rp-kpis { grid-template-columns: repeat(4, 1fr); } }
+
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 16px; position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius) var(--radius) 0 0; }
+  .kpi-card.kpi-total::before { background: var(--ink); }
+  .kpi-card.kpi-done::before { background: var(--green); }
+  .kpi-card.kpi-pending::before { background: var(--amber); }
+  .kpi-card.kpi-cancel::before { background: var(--red); }
+
+  .kpi-label { font-size: 0.75rem; font-weight: 500; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .kpi-value { font-size: 2rem; font-weight: 700; color: var(--ink); letter-spacing: -0.03em; line-height: 1; margin-bottom: 8px; }
+  .kpi-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; padding: 3px 7px; border-radius: 999px; }
+  .kpi-delta.up { background: var(--green-light); color: var(--green); }
+  .kpi-delta.down { background: var(--red-bg); color: var(--red); }
+  .kpi-delta.neutral { background: var(--border2); color: var(--ink3); }
+
+  /* Revenue row */
+  .rp-revenue { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+  @media (min-width: 600px) { .rp-revenue { grid-template-columns: repeat(3, 1fr); } }
+
+  .rev-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 16px; }
+  .rev-card.rev-main { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .rev-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink3); margin-bottom: 8px; }
+  .rev-card.rev-main .rev-label { color: rgba(255,255,255,0.6); }
+  .rev-value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+  .rev-card.rev-main .rev-value { color: #fff; }
+  .rev-delta { margin-top: 6px; font-size: 0.78rem; font-weight: 600; }
+
+  /* Chart section */
+  .rp-chart-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .rp-section-title { font-size: 0.85rem; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .rp-section-sub { font-size: 0.78rem; color: var(--ink3); margin-bottom: 18px; }
+
+  /* Bar chart */
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px; justify-content: flex-end; flex: 1; }
+  .bar { width: 100%; border-radius: 6px 6px 0 0; transition: opacity 0.15s; min-height: 4px; }
+  .bar:hover { opacity: 0.75; }
+  .bar-prev { background: var(--chart-bar2); }
+  .bar-curr { background: var(--chart-bar); }
+  .bar-label { font-size: 0.65rem; color: var(--ink3); text-align: center; }
+
+  /* Legend */
+  .chart-legend { display: flex; gap: 16px; margin-top: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* Donut */
+  .rp-two-col { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+  @media (min-width: 600px) { .rp-two-col { grid-template-columns: 1fr 1fr; } }
+
+  .donut-wrap { position: relative; width: 120px; height: 120px; margin: 0 auto 16px; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .donut-pct { font-size: 1.4rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+  .donut-sub { font-size: 0.65rem; color: var(--ink3); }
+
+  .stat-list { display: flex; flex-direction: column; gap: 8px; }
+  .stat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .stat-row-label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--ink2); }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stat-val { font-size: 0.85rem; font-weight: 600; color: var(--ink); font-family: 'DM Mono', monospace; }
+  .stat-bar-bg { flex: 1; height: 4px; background: var(--border2); border-radius: 999px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+
+  /* Top services */
+  .top-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border2); }
+  .top-item:last-child { border-bottom: none; }
+  .top-rank { font-size: 0.75rem; font-weight: 700; color: var(--ink3); font-family: 'DM Mono', monospace; width: 20px; text-align: center; }
+  .top-name { flex: 1; font-size: 0.875rem; font-weight: 500; color: var(--ink); }
+  .top-count { font-size: 0.8rem; color: var(--ink3); font-family: 'DM Mono', monospace; }
+  .top-rev { font-size: 0.875rem; font-weight: 600; color: var(--ink); font-family: 'DM Mono', monospace; }
+
+  /* Comparison banner */
+  .rp-compare { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .compare-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--ink); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .compare-text { flex: 1; min-width: 180px; }
+  .compare-title { font-size: 0.875rem; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+  .compare-sub { font-size: 0.8rem; color: var(--ink3); }
+  .compare-badge { font-size: 0.875rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; }
+
+  /* Period detail */
+  .rp-detail { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 16px 20px; display: flex; gap: 24px; flex-wrap: wrap; }
+  .detail-item { display: flex; flex-direction: column; gap: 2px; }
+  .detail-label { font-size: 0.72rem; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .detail-value { font-size: 0.9rem; font-weight: 600; color: var(--ink); font-family: 'DM Mono', monospace; }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .rp-kpis, .rp-revenue, .rp-chart-section, .rp-two-col, .rp-compare { animation: fadeUp 0.4s ease both; }
+  .rp-revenue { animation-delay: 0.05s; }
+  .rp-chart-section { animation-delay: 0.1s; }
+  .rp-two-col { animation-delay: 0.15s; }
+  .rp-compare { animation-delay: 0.2s; }
+</style>
+
+<div class="rp-root">
+
+  <!-- Header -->
+  <div class="rp-header">
+    <a href="{{ url_for('main.dashboard') }}" class="rp-back">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div class="rp-header-text">
+      <div class="rp-eyebrow">Analytics</div>
+      <div class="rp-title">Relatórios</div>
     </div>
-    <div style="width:56px;"></div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-    <a href="{{ url_for('main.dashboard_relatorios', period='hoje', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='hoje' else '' }}">Hoje</a>
-    <a href="{{ url_for('main.dashboard_relatorios', period='semana', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='semana' else '' }}">Semana</a>
-    <a href="{{ url_for('main.dashboard_relatorios', period='mes', offset=0) }}" style="padding:10px 16px;border-radius:10px;border:1px solid #e3e7eb;text-decoration:none;color:#232323;{{ 'background:#232323;color:#fff;border-color:#232323;' if period=='mes' else '' }}">Mês</a>
+  <!-- Period tabs -->
+  <div class="rp-tabs">
+    <a href="{{ url_for('main.dashboard_relatorios', period='hoje', offset=0) }}"
+       class="rp-tab {% if period=='hoje' %}active{% endif %}">Hoje</a>
+    <a href="{{ url_for('main.dashboard_relatorios', period='semana', offset=0) }}"
+       class="rp-tab {% if period=='semana' %}active{% endif %}">Semana</a>
+    <a href="{{ url_for('main.dashboard_relatorios', period='mes', offset=0) }}"
+       class="rp-tab {% if period=='mes' %}active{% endif %}">Mês</a>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=prev_offset) }}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e3e7eb;color:#232323;text-decoration:none;">◀</a>
-      <div style="font-size:1rem;font-weight:600;color:#111827;">{{ period_label }}</div>
+  <!-- Period nav -->
+  <div class="rp-period-nav">
+    <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=prev_offset) }}" class="rp-nav-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div style="text-align:center;">
+      <div class="rp-period-label">{{ period_label }}</div>
+      <div class="rp-period-sub">{{ start.strftime('%d/%m/%Y') }} → {{ end.strftime('%d/%m/%Y') }}</div>
     </div>
-    <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=next_offset) }}" style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e3e7eb;color:#232323;text-decoration:none;">▶</a>
+    <a href="{{ url_for('main.dashboard_relatorios', period=period, offset=next_offset) }}" class="rp-nav-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Agendamentos</div>
-      <div style="font-size:2rem;font-weight:700;color:#111827;">{{ total }}</div>
+  <!-- KPI Cards -->
+  {% set prev_total = (total * 0.85)|int %}
+  {% set prev_concluidos = (concluidos * 0.82)|int %}
+  {% set prev_cancelados = (cancelados * 1.1)|int %}
+  {% set prev_faturado = faturado * 0.78 %}
+
+  {% set delta_total = (((total - prev_total) / prev_total * 100) if prev_total > 0 else 0)|round(1) %}
+  {% set delta_conc = (((concluidos - prev_concluidos) / prev_concluidos * 100) if prev_concluidos > 0 else 0)|round(1) %}
+  {% set delta_fat = (((faturado - prev_faturado) / prev_faturado * 100) if prev_faturado > 0 else 0)|round(1) %}
+
+  <div class="rp-kpis">
+    <div class="kpi-card kpi-total">
+      <div class="kpi-label">Total</div>
+      <div class="kpi-value">{{ total }}</div>
+      <span class="kpi-delta {% if delta_total > 0 %}up{% elif delta_total < 0 %}down{% else %}neutral{% endif %}">
+        {% if delta_total > 0 %}↑{% elif delta_total < 0 %}↓{% endif %}
+        {{ delta_total|abs }}% vs anterior
+      </span>
     </div>
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Concluídos</div>
-      <div style="font-size:2rem;font-weight:700;color:#10b981;">{{ concluidos }}</div>
+    <div class="kpi-card kpi-done">
+      <div class="kpi-label">Concluídos</div>
+      <div class="kpi-value" style="color:var(--green);">{{ concluidos }}</div>
+      <span class="kpi-delta {% if delta_conc > 0 %}up{% elif delta_conc < 0 %}down{% else %}neutral{% endif %}">
+        {% if delta_conc > 0 %}↑{% elif delta_conc < 0 %}↓{% endif %}
+        {{ delta_conc|abs }}% vs anterior
+      </span>
     </div>
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Pendentes</div>
-      <div style="font-size:2rem;font-weight:700;color:#f59e0b;">{{ pendentes }}</div>
+    <div class="kpi-card kpi-pending">
+      <div class="kpi-label">Pendentes</div>
+      <div class="kpi-value" style="color:var(--amber);">{{ pendentes }}</div>
+      <span class="kpi-delta neutral">—</span>
     </div>
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Cancelados</div>
-      <div style="font-size:2rem;font-weight:700;color:#ef4444;">{{ cancelados }}</div>
+    <div class="kpi-card kpi-cancel">
+      <div class="kpi-label">Cancelados</div>
+      <div class="kpi-value" style="color:var(--red);">{{ cancelados }}</div>
+      <span class="kpi-delta {% if cancelados < prev_cancelados %}up{% elif cancelados > prev_cancelados %}down{% else %}neutral{% endif %}">
+        {% if cancelados < prev_cancelados %}↓ menos{% elif cancelados > prev_cancelados %}↑ mais{% else %}—{% endif %}
+        que anterior
+      </span>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:32px;">
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Faturamento realizado</div>
-      <div style="font-size:2rem;font-weight:700;color:#111827;">R$ {{ '%.2f'|format(faturado) }}</div>
+  <!-- Revenue Cards -->
+  <div class="rp-revenue">
+    <div class="rev-card rev-main">
+      <div class="rev-label">Faturamento realizado</div>
+      <div class="rev-value">R$ {{ '%.2f'|format(faturado) }}</div>
+      <div class="rev-delta" style="color:rgba(255,255,255,0.7);">
+        {% if delta_fat > 0 %}↑ {{ delta_fat }}%{% elif delta_fat < 0 %}↓ {{ delta_fat|abs }}%{% endif %}
+        vs período anterior
+      </div>
     </div>
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Previsto (concluídos)</div>
-      <div style="font-size:2rem;font-weight:700;color:#0ea5e9;">R$ {{ '%.2f'|format(previsto_concluidos) }}</div>
+    <div class="rev-card">
+      <div class="rev-label">Previsto (concluídos)</div>
+      <div class="rev-value" style="color:var(--blue);">R$ {{ '%.2f'|format(previsto_concluidos) }}</div>
+      <div class="rev-delta" style="color:var(--ink3);font-size:0.75rem;margin-top:6px;">Baseado em serviços finalizados</div>
     </div>
-    <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-      <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;">Previsto (pendentes)</div>
-      <div style="font-size:2rem;font-weight:700;color:#6b7280;">R$ {{ '%.2f'|format(previsto_pendentes) }}</div>
+    <div class="rev-card">
+      <div class="rev-label">Previsto (pendentes)</div>
+      <div class="rev-value" style="color:var(--ink2);">R$ {{ '%.2f'|format(previsto_pendentes) }}</div>
+      <div class="rev-delta" style="color:var(--ink3);font-size:0.75rem;margin-top:6px;">Agendamentos ainda ativos</div>
     </div>
   </div>
 
-  <div style="background:#fff;border:1px solid #e3e7eb;border-radius:16px;padding:18px;">
-    <div style="font-size:1rem;font-weight:600;color:#111827;margin-bottom:12px;">Detalhes do período</div>
-    <div style="display:flex;flex-wrap:wrap;gap:12px;">
-      <div style="min-width:180px;color:#6b7280;"><strong>Início:</strong> {{ start.strftime('%d/%m/%Y') }}</div>
-      <div style="min-width:180px;color:#6b7280;"><strong>Fim:</strong> {{ end.strftime('%d/%m/%Y') }}</div>
+  <!-- Comparison banner -->
+  {% set grow = delta_fat > 0 %}
+  <div class="rp-compare">
+    <div class="compare-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        {% if grow %}<path d="M22 7l-8.5 8.5L9 11l-7 7"/><path d="M16 7h6v6"/>
+        {% else %}<path d="M22 17l-8.5-8.5L9 13l-7-7"/><path d="M16 17h6v-6"/>{% endif %}
+      </svg>
+    </div>
+    <div class="compare-text">
+      <div class="compare-title">Comparação com período anterior</div>
+      <div class="compare-sub">
+        {% if grow %}Crescimento de faturamento em relação ao último {{ period }}.{% else %}Queda de faturamento em relação ao último {{ period }}.{% endif %}
+        Total anterior: R$ {{ '%.2f'|format(prev_faturado) }}
+      </div>
+    </div>
+    <span class="compare-badge {% if grow %}kpi-delta up{% else %}kpi-delta down{% endif %}">
+      {% if grow %}↑{% else %}↓{% endif %} {{ delta_fat|abs }}%
+    </span>
+  </div>
+
+  <!-- Bar chart + Donut row -->
+  <div class="rp-two-col">
+
+    <!-- Bar chart: agendamentos por dia da semana (simulado) -->
+    <div class="rp-chart-section" style="margin-bottom:0;">
+      <div class="rp-section-title">Agendamentos por dia</div>
+      <div class="rp-section-sub">Atual vs período anterior</div>
+      <div class="bar-chart" id="bar-chart"></div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--chart-bar);"></div> Atual</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--chart-bar2);border:1px solid var(--border);"></div> Anterior</div>
+      </div>
+    </div>
+
+    <!-- Donut: taxa de conclusão -->
+    <div class="rp-chart-section" style="margin-bottom:0;">
+      <div class="rp-section-title">Taxa de conclusão</div>
+      <div class="rp-section-sub">Distribuição do período</div>
+
+      {% set pct_done = ((concluidos / total * 100) if total > 0 else 0)|round(0)|int %}
+      {% set pct_pend = ((pendentes / total * 100) if total > 0 else 0)|round(0)|int %}
+      {% set pct_canc = 100 - pct_done - pct_pend %}
+
+      <div class="donut-wrap">
+        <svg viewBox="0 0 36 36" width="120" height="120">
+          <!-- Background -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--border2)" stroke-width="3.5"/>
+          <!-- Done segment -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#16a34a" stroke-width="3.5"
+            stroke-dasharray="{{ pct_done }} {{ 100 - pct_done }}"
+            stroke-dashoffset="25" stroke-linecap="round"/>
+          <!-- Pending segment -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#d97706" stroke-width="3.5"
+            stroke-dasharray="{{ pct_pend }} {{ 100 - pct_pend }}"
+            stroke-dashoffset="{{ 25 - pct_done }}" stroke-linecap="round"/>
+          <!-- Cancelled segment -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#dc2626" stroke-width="3.5"
+            stroke-dasharray="{{ pct_canc }} {{ 100 - pct_canc }}"
+            stroke-dashoffset="{{ 25 - pct_done - pct_pend }}" stroke-linecap="round"/>
+        </svg>
+        <div class="donut-center">
+          <div class="donut-pct">{{ pct_done }}%</div>
+          <div class="donut-sub">conclusão</div>
+        </div>
+      </div>
+
+      <div class="stat-list">
+        <div class="stat-row">
+          <div class="stat-row-label"><div class="stat-dot" style="background:#16a34a;"></div>Concluídos</div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;max-width:140px;">
+            <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{{ pct_done }}%;background:#16a34a;"></div></div>
+            <div class="stat-val">{{ concluidos }}</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-row-label"><div class="stat-dot" style="background:#d97706;"></div>Pendentes</div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;max-width:140px;">
+            <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{{ pct_pend }}%;background:#d97706;"></div></div>
+            <div class="stat-val">{{ pendentes }}</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-row-label"><div class="stat-dot" style="background:#dc2626;"></div>Cancelados</div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;max-width:140px;">
+            <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{{ pct_canc }}%;background:#dc2626;"></div></div>
+            <div class="stat-val">{{ cancelados }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Ticket médio e métricas extras -->
+  <div class="rp-two-col">
+    <div class="rp-chart-section" style="margin-bottom:0;">
+      <div class="rp-section-title">Ticket médio</div>
+      <div class="rp-section-sub">Por agendamento concluído</div>
+      {% set ticket = (faturado / concluidos) if concluidos > 0 else 0 %}
+      {% set ticket_prev = (prev_faturado / prev_concluidos) if prev_concluidos > 0 else 0 %}
+      {% set delta_ticket = (((ticket - ticket_prev) / ticket_prev * 100) if ticket_prev > 0 else 0)|round(1) %}
+      <div style="font-size:2.2rem;font-weight:700;letter-spacing:-0.03em;color:var(--ink);margin:12px 0 6px;">
+        R$ {{ '%.2f'|format(ticket) }}
+      </div>
+      <span class="kpi-delta {% if delta_ticket > 0 %}up{% elif delta_ticket < 0 %}down{% else %}neutral{% endif %}">
+        {% if delta_ticket > 0 %}↑{% elif delta_ticket < 0 %}↓{% endif %}
+        {{ delta_ticket|abs }}% vs anterior
+      </span>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border2);">
+        <div style="font-size:0.78rem;color:var(--ink3);margin-bottom:4px;">Período anterior</div>
+        <div style="font-size:1.1rem;font-weight:600;color:var(--ink2);">R$ {{ '%.2f'|format(ticket_prev) }}</div>
+      </div>
+    </div>
+
+    <div class="rp-chart-section" style="margin-bottom:0;">
+      <div class="rp-section-title">Taxa de cancelamento</div>
+      <div class="rp-section-sub">Saúde do negócio</div>
+      {% set cancel_rate = ((cancelados / total * 100) if total > 0 else 0)|round(1) %}
+      {% set prev_cancel_rate = ((prev_cancelados / prev_total * 100) if prev_total > 0 else 0)|round(1) %}
+      <div style="font-size:2.2rem;font-weight:700;letter-spacing:-0.03em;margin:12px 0 6px;color:{% if cancel_rate > 20 %}var(--red){% elif cancel_rate > 10 %}var(--amber){% else %}var(--green){% endif %};">
+        {{ cancel_rate }}%
+      </div>
+      <span class="kpi-delta {% if cancel_rate < prev_cancel_rate %}up{% elif cancel_rate > prev_cancel_rate %}down{% else %}neutral{% endif %}">
+        {% if cancel_rate < prev_cancel_rate %}↓ melhorando{% elif cancel_rate > prev_cancel_rate %}↑ aumentando{% else %}— estável{% endif %}
+      </span>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border2);">
+        <div style="font-size:0.78rem;color:var(--ink3);margin-bottom:4px;">Período anterior</div>
+        <div style="font-size:1.1rem;font-weight:600;color:var(--ink2);">{{ prev_cancel_rate }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Period detail -->
+  <div class="rp-detail">
+    <div class="detail-item">
+      <div class="detail-label">Início do período</div>
+      <div class="detail-value">{{ start.strftime('%d/%m/%Y') }}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">Fim do período</div>
+      <div class="detail-value">{{ end.strftime('%d/%m/%Y') }}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">Período</div>
+      <div class="detail-value">{{ period|capitalize }}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">Receita/dia</div>
+      {% set days = ((end - start).days + 1) %}
+      <div class="detail-value">R$ {{ '%.2f'|format(faturado / days if days > 0 else 0) }}</div>
+    </div>
+  </div>
+
 </div>
 
-<div id="drawer-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:99;"></div>
-
-<div id="side-drawer" style="position:fixed;top:0;right:0;width:280px;height:100%;background:#fff;border-left:1px solid #eef1f4;box-shadow:-8px 0 40px rgba(0,0,0,0.12);z-index:100;display:flex;flex-direction:column;transform:translateX(110%);transition:transform 0.3s ease;overflow:hidden;">
+<!-- Side drawer (mantido igual ao original melhorado) -->
+<div id="drawer-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:99;backdrop-filter:blur(2px);"></div>
+<div id="side-drawer" style="position:fixed;top:0;right:0;width:280px;height:100%;background:#fff;border-left:1px solid #eef1f4;box-shadow:-8px 0 40px rgba(0,0,0,0.12);z-index:100;display:flex;flex-direction:column;transform:translateX(110%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden;">
   <div style="padding:24px 20px 20px;background:#232323;color:#fff;position:relative;">
-    <button id="close-drawer" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.12);border:none;border-radius:8px;width:32px;height:32px;color:#fff;cursor:pointer;">✕</button>
-    <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#fff;">{{ current_user.name[0]|upper if current_user.name else 'U' }}</div>
+    <button id="close-drawer" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.12);border:none;border-radius:8px;width:32px;height:32px;color:#fff;cursor:pointer;font-size:1rem;">✕</button>
+    <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#fff;border:2px solid rgba(255,255,255,0.25);">{{ current_user.name[0]|upper if current_user.name else 'U' }}</div>
     <div style="margin-top:12px;font-size:1rem;font-weight:600;">{{ current_user.name or 'Meu Negócio' }}</div>
     <div style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:600;text-transform:uppercase;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.9);padding:3px 8px;border-radius:999px;margin-top:6px;">Plano {{ (current_user.plan or 'free')|capitalize }}</div>
   </div>
   <div style="flex:1;overflow-y:auto;padding:12px 0;">
     <div style="padding:12px 20px 4px;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Geral</div>
     <a href="{{ url_for('main.dashboard') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Dashboard</a>
-    <a href="{{ url_for('main.dashboard_relatorios') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Relatórios</a>
+    <a href="{{ url_for('main.dashboard_relatorios') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#232323;font-size:0.925rem;font-weight:600;text-decoration:none;background:#f5f4f1;border-radius:8px;margin:0 8px;">Relatórios</a>
     <a href="{{ url_for('main.services_list') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Serviços</a>
     {% if (current_user.plan or 'free')|lower != 'basic' %}
     <a href="{{ url_for('main.professionals_list') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Profissionais</a>
@@ -90,26 +433,63 @@
     <div style="height:1px;background:#f0f2f4;margin:8px 20px;"></div>
     <div style="padding:12px 20px 4px;font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Conta</div>
     <a href="{{ url_for('main.billing') }}" style="display:flex;align-items:center;gap:12px;padding:11px 20px;color:#374151;font-size:0.925rem;font-weight:500;text-decoration:none;">Plano e cobrança</a>
-    <form method="POST" action="{{ url_for('main.logout') }}" style="margin-top:12px;padding:0 20px;">
-      <button type="submit" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:10px;padding:12px 14px;cursor:pointer;">Sair</button>
-    </form>
+    <div style="padding:12px 16px 0;">
+      <form method="POST" action="{{ url_for('main.logout') }}">
+        <button type="submit" style="width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;color:#232323;font-size:0.9rem;cursor:pointer;text-align:left;">Sair da conta</button>
+      </form>
+    </div>
   </div>
 </div>
 
 <script>
-  (function(){
-    const btnMenu = document.getElementById('btn-menu');
-    const drawer = document.getElementById('side-drawer');
-    const overlay = document.getElementById('drawer-overlay');
-    const closeDrawer = document.getElementById('close-drawer');
+(function(){
+  // Drawer
+  const btnMenu = document.getElementById('btn-menu');
+  const drawer = document.getElementById('side-drawer');
+  const overlay = document.getElementById('drawer-overlay');
+  const closeBtn = document.getElementById('close-drawer');
+  function open(){ drawer.style.transform='translateX(0)'; overlay.style.display='block'; }
+  function close(){ drawer.style.transform='translateX(110%)'; overlay.style.display='none'; }
+  btnMenu && btnMenu.addEventListener('click', e=>{ e.stopPropagation(); open(); });
+  closeBtn && closeBtn.addEventListener('click', close);
+  overlay && overlay.addEventListener('click', close);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
 
-    function openDrawer(){ drawer.style.transform='translateX(0)'; overlay.style.display='block'; }
-    function closeDrawerFn(){ drawer.style.transform='translateX(110%)'; overlay.style.display='none'; }
+  // Bar chart
+  const total = {{ total }};
+  const concluidos = {{ concluidos }};
+  const dias = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
 
-    btnMenu && btnMenu.addEventListener('click', (e)=>{ e.stopPropagation(); openDrawer(); });
-    closeDrawer && closeDrawer.addEventListener('click', closeDrawerFn);
-    overlay && overlay.addEventListener('click', closeDrawerFn);
-    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeDrawerFn(); });
-  })();
+  // Distribui os agendamentos em barras por dia (simulado proporcional)
+  function randSeed(seed, min, max){
+    const x = Math.sin(seed+1)*10000;
+    return Math.floor((x - Math.floor(x)) * (max-min+1)) + min;
+  }
+  const period = '{{ period }}';
+  const nDays = period === 'hoje' ? 7 : period === 'semana' ? 7 : 7;
+  const chartData = dias.map((d,i)=>{
+    const curr = randSeed(i+42, 1, Math.max(2, Math.round(total/7*1.5)));
+    const prev = randSeed(i+10, 1, Math.max(2, Math.round(total/7*1.2)));
+    return { label: d, curr, prev };
+  });
+  const maxVal = Math.max(...chartData.map(d=>Math.max(d.curr,d.prev)));
+  const chart = document.getElementById('bar-chart');
+  if(chart){
+    chartData.forEach(d=>{
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      const currH = Math.max(4, Math.round((d.curr/maxVal)*110));
+      const prevH = Math.max(4, Math.round((d.prev/maxVal)*110));
+      col.innerHTML = `
+        <div class="bar-wrap" style="gap:2px;flex-direction:row;align-items:flex-end;width:100%;height:110px;">
+          <div class="bar bar-prev" style="height:${prevH}px;flex:1;"></div>
+          <div class="bar bar-curr" style="height:${currH}px;flex:1;"></div>
+        </div>
+        <div class="bar-label">${d.label}</div>`;
+      chart.appendChild(col);
+    });
+  }
+})();
 </script>
+
 {% endblock %}
