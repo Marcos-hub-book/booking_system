@@ -325,7 +325,7 @@
         Relatórios
       </a>
 
-      <a id="btn-install-app" class="drawer-item" style="display:none;">
+      <a id="btn-install-app" class="drawer-item" style="display:flex;">
         <div class="drawer-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v10"/>
@@ -805,6 +805,22 @@
     const installButton = document.getElementById('btn-install-app');
     let deferredPrompt = null;
 
+    function showInstallInstructions() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const message = isIOS
+        ? 'Para instalar: toque em Compartilhar e escolha "Adicionar à Tela de Início".'
+        : 'Para instalar: abra o menu do navegador e escolha "Adicionar à tela inicial".';
+      alert(message);
+    }
+
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      if (installButton) {
+        installButton.style.display = 'none';
+      }
+    } else if (installButton) {
+      installButton.style.display = 'flex';
+    }
+
     window.addEventListener('beforeinstallprompt', function(event) {
       event.preventDefault();
       deferredPrompt = event;
@@ -813,14 +829,18 @@
       }
     });
 
-    installButton && installButton.addEventListener('click', async function() {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === 'accepted') {
-        installButton.style.display = 'none';
+    installButton && installButton.addEventListener('click', async function(event) {
+      event.preventDefault();
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        if (choiceResult.outcome === 'accepted') {
+          installButton.style.display = 'none';
+        }
+        deferredPrompt = null;
+      } else {
+        showInstallInstructions();
       }
-      deferredPrompt = null;
     });
 
     window.addEventListener('appinstalled', function() {
