@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response
+from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
 from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location, Notification
@@ -21,6 +21,11 @@ import pytz
 
 
 main = Blueprint('main', __name__)
+
+@main.route('/sw.js')
+def service_worker():
+    return send_from_directory('static', 'sw.js')
+
 #try:
    # locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 #except locale.Error:

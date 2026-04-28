@@ -325,6 +325,17 @@
         Relatórios
       </a>
 
+      <a id="btn-install-app" class="drawer-item" style="display:none;">
+        <div class="drawer-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v10"/>
+            <path d="M8 9l4 4 4-4"/>
+            <path d="M5 20h14"/>
+          </svg>
+        </div>
+        Baixar app
+      </a>
+
       <div class="drawer-divider"></div>
       <div class="drawer-section-label">Conta</div>
 
@@ -790,6 +801,34 @@
     apProf && apProf.addEventListener('change', ()=>{ updateServices(); updateTimes(); });
     apService && apService.addEventListener('change', updateTimes);
     apLocation && apLocation.addEventListener('change', ()=>{ updateServices(); updateTimes(); });
+
+    const installButton = document.getElementById('btn-install-app');
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', function(event) {
+      event.preventDefault();
+      deferredPrompt = event;
+      if (installButton) {
+        installButton.style.display = 'flex';
+      }
+    });
+
+    installButton && installButton.addEventListener('click', async function() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        installButton.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+
+    window.addEventListener('appinstalled', function() {
+      if (installButton) {
+        installButton.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
 
     const inpCust = document.getElementById('ap-customer');
     const hidCust = document.getElementById('ap-customer-id');

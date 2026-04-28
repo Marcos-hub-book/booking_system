@@ -48,4 +48,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners for changes in service and professional selections
     if (serviceSelect) serviceSelect.addEventListener('change', updateAvailableTimes);
     if (professionalSelect) professionalSelect.addEventListener('change', updateAvailableTimes);
+
+    // PWA service worker registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function(reg) {
+                    console.log('Service Worker registrado com sucesso:', reg);
+                })
+                .catch(function(err) {
+                    console.warn('Falha ao registrar Service Worker:', err);
+                });
+        });
+    }
 });
