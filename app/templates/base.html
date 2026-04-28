@@ -79,5 +79,12 @@
         {% block content %}{% endblock %}
     </main>
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js?v=3')
+            .then(reg => console.log('SW registrado:', reg))
+            .catch(err => console.error('Erro SW:', err));
+            }
+</script>
 </body>
 </html>
