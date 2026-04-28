@@ -2,7 +2,7 @@
   "name": "Poraqui - Agenda",
   "short_name": "Poraqui",
   "description": "Agendamento rápido para profissionais.",
-  "start_url": "/",
+  "start_url": "/dashboard?source=pwa",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#232323",
