@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script type="module">
+        // Import Firebase SDK
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js';
+
+        // Firebase config - substitua pelos seus valores
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "your-sender-id",
+            appId: "your-app-id"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+
+        window.firebaseMessaging = messaging;
+    </script>
     <title>Admin Dashboard</title>
 </head>
 <body>
@@ -77,5 +98,65 @@
     </div>
     {% endblock %}
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <script>
+        // Push Notifications for PWA
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isPWA = urlParams.get('source') === 'pwa';
+
+            if (isPWA && 'serviceWorker' in navigator && 'Notification' in window) {
+                // Register Firebase messaging SW
+                navigator.serviceWorker.register('/static/firebase-messaging-sw.js')
+                    .then(registration => {
+                        console.log('Firebase SW registered');
+                    })
+                    .catch(err => console.error('Firebase SW registration failed', err));
+
+                // Check notification permission
+                if (Notification.permission === 'default') {
+                    // Ask for permission
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        getFCMToken();
+                    }
+                } else if (Notification.permission === 'granted') {
+                    getFCMToken();
+                }
+            }
+        });
+
+        async function getFCMToken() {
+            try {
+                const token = await getToken(window.firebaseMessaging, {
+                    vapidKey: 'your-vapid-key' // Generate this in Firebase Console
+                });
+                if (token) {
+                    // Send token to server
+                    await fetch('/save-fcm-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ token })
+                    });
+                    console.log('FCM token saved');
+                }
+            } catch (error) {
+                console.error('Error getting FCM token:', error);
+            }
+        }
+
+        // Handle foreground messages
+        if (window.firebaseMessaging) {
+            onMessage(window.firebaseMessaging, (payload) => {
+                console.log('Message received. ', payload);
+                // Show notification even when app is in foreground
+                new Notification(payload.notification.title, {
+                    body: payload.notification.body,
+                    icon: '/static/icons/icon-192x192.png'
+                });
+            });
+        }
+    </script>
 </body>
 </html>

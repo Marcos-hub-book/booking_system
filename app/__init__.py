@@ -4,6 +4,8 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 import os
 import cloudinary
+import firebase_admin
+from firebase_admin import credentials
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -32,5 +34,13 @@ def create_app():
     from .routes import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
+    # Initialize Firebase
+    firebase_creds_path = os.environ.get('FIREBASE_CREDENTIALS_PATH', 'firebase_credentials.json')
+    if os.path.exists(firebase_creds_path):
+        cred = credentials.Certificate(firebase_creds_path)
+        firebase_admin.initialize_app(cred)
+    else:
+        # Fallback to environment variables or default project
+        firebase_admin.initialize_app()
 
     return app

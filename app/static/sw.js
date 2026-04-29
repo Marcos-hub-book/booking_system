@@ -23,6 +23,31 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// Push notification event
+self.addEventListener('push', event => {
+  const options = {
+    body: event.data ? event.data.text() : 'Nova notificação',
+    icon: '/static/icons/icon-192x192.png',
+    badge: '/static/icons/icon-192x192.png',
+    vibrate: [200, 100, 200],
+    data: {
+      url: '/dashboard?source=pwa'
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification('Poraqui - Agenda', options)
+  );
+});
+
+// Notification click event
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url || '/dashboard?source=pwa')
+  );
+});
+
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 

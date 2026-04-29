@@ -18,6 +18,8 @@ import requests
 import locale
 import cloudinary.uploader
 import pytz
+import firebase_admin
+from firebase_admin import messaging
 
 
 main = Blueprint('main', __name__)
@@ -2402,9 +2404,34 @@ def create_notification(user_id, message, related_id=None, related_type=None):
         )
         db.session.add(notification)
         db.session.commit()
+        
+        # Enviar push notification se o usuário tiver token FCM
+        send_push_notification(user_id, message)
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Erro ao criar notificação: {e}")
+
+def send_push_notification(user_id, message):
+    """Envia push notification via Firebase Cloud Messaging."""
+    try:
+        user = User.query.get(user_id)
+        if not user or not user.fcm_token:
+            return
+        
+        # Criar mensagem FCM
+        fcm_message = messaging.Message(
+            notification=messaging.Notification(
+                title="Poraqui - Novo Agendamento",
+                body=message,
+            ),
+            token=user.fcm_token,
+        )
+        
+        # Enviar mensagem
+        response = messaging.send(fcm_message)
+        current_app.logger.info(f"Push notification enviado: {response}")
+    except Exception as e:
+        current_app.logger.error(f"Erro ao enviar push notification: {e}")
 
 @main.route('/notifications', methods=['GET'])
 @login_required
@@ -2430,6 +2457,21 @@ def get_notifications():
             } for n in notifications
         ]
     })
+
+@main.route('/save-fcm-token', methods=['POST'])
+@login_required
+def save_fcm_token():
+    """Salva o FCM token do usuário para push notifications."""
+    data = request.get_json()
+    token = data.get('token')
+    if not token:
+        return jsonify({'error': 'Token FCM é obrigatório'}), 400
+    
+    current_user.fcm_token = token
+    db.session.commit()
+    
+    return jsonify({'message': 'Token FCM salvo com sucesso'})
+
 @main.route('/admin/login-as/<int:user_id>')
 @login_required
 def login_as(user_id):

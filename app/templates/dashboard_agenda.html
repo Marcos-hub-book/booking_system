@@ -883,4 +883,69 @@
   })();
 </script>
 
+<script type="module">
+  const query = new URLSearchParams(window.location.search);
+  const isPWA = query.get('source') === 'pwa';
+
+  if (isPWA && 'serviceWorker' in navigator && 'Notification' in window) {
+    try {
+      await navigator.serviceWorker.register('/static/firebase-messaging-sw.js');
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+      const { getMessaging, getToken, onMessage } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js');
+
+      const firebaseConfig = {
+        apiKey: 'AIzaSyAsU9o8fyhIh8JbOx7U4vhktH_lpVxv828',
+        authDomain: 'poraqui-notifications.firebaseapp.com',
+        projectId: 'poraqui-notifications',
+        storageBucket: 'poraqui-notifications.firebasestorage.app',
+        messagingSenderId: '1005172593006',
+        appId: '1:1005172593006:web:40206169f28002c155717f'
+      };
+
+      const firebaseApp = initializeApp(firebaseConfig);
+      const messaging = getMessaging(firebaseApp);
+
+      async function saveFcmToken(token) {
+        await fetch('/save-fcm-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+      }
+
+      async function requestPermissionAndSaveToken() {
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            return;
+          }
+        }
+        if (Notification.permission !== 'granted') {
+          return;
+        }
+
+        const token = await getToken(messaging, {
+          vapidKey: 'BN9Rouer8j9VeOrdMaAqYYl98qI_RxuU9RQKYe7no021RNyi6bO9x7TxEVso71sUq3klgu_zh8MkHW_cD6RuKXc'
+        });
+        if (token) {
+          await saveFcmToken(token);
+        }
+      }
+
+      await requestPermissionAndSaveToken();
+
+      onMessage(messaging, (payload) => {
+        if (payload.notification) {
+          new Notification(payload.notification.title, {
+            body: payload.notification.body,
+            icon: '/static/icons/icon-192x192.png'
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Erro no setup de push notifications:', error);
+    }
+  }
+</script>
+
 {% endblock %}

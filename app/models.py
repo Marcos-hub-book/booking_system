@@ -34,6 +34,7 @@ class User(db.Model):
     estado = db.Column(db.String(2))
     profile_photo = db.Column(db.String(256))  # caminho da foto
     cover_photo = db.Column(db.String(256))  # caminho da capa
+    fcm_token = db.Column(db.String(256))  # Firebase Cloud Messaging token
     plan = db.Column(db.String(32), default="free")
     # Billing/trial fields
     cpf_encrypted = db.Column(db.String(256))
