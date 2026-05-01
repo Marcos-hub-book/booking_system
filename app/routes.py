@@ -28,6 +28,10 @@ main = Blueprint('main', __name__)
 def service_worker():
     return send_from_directory('static', 'sw.js')
 
+@main.route('/firebase-messaging-sw.js')
+def firebase_messaging_service_worker():
+    return send_from_directory('static', 'firebase-messaging-sw.js')
+
 #try:
    # locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 #except locale.Error:
@@ -2415,8 +2419,15 @@ def send_push_notification(user_id, message):
     """Envia push notification via Firebase Cloud Messaging."""
     try:
         user = User.query.get(user_id)
-        if not user or not user.fcm_token:
+        if not user:
+            current_app.logger.warning(f"Usuário {user_id} não encontrado")
             return
+        
+        if not user.fcm_token:
+            current_app.logger.info(f"Usuário {user.id} não tem fcm_token registrado")
+            return
+        
+        current_app.logger.info(f"Preparando push para usuário {user.id} com token: {user.fcm_token[:20]}...")
         
         # Criar mensagem FCM
         fcm_message = messaging.Message(
@@ -2429,9 +2440,10 @@ def send_push_notification(user_id, message):
         
         # Enviar mensagem
         response = messaging.send(fcm_message)
-        current_app.logger.info(f"Push notification enviado: {response}")
+        current_app.logger.info(f"Push notification enviado com sucesso. ID: {response}")
     except Exception as e:
-        current_app.logger.error(f"Erro ao enviar push notification: {e}")
+        current_app.logger.error(f"Erro ao enviar push notification para usuário {user_id}: {str(e)}")
+        # Não propaga o erro para não quebrar o fluxo de agendamento
 
 @main.route('/notifications', methods=['GET'])
 @login_required
@@ -2465,12 +2477,18 @@ def save_fcm_token():
     data = request.get_json()
     token = data.get('token')
     if not token:
+        current_app.logger.warning(f"POST /save-fcm-token sem token para usuário {current_user.id}")
         return jsonify({'error': 'Token FCM é obrigatório'}), 400
     
-    current_user.fcm_token = token
-    db.session.commit()
-    
-    return jsonify({'message': 'Token FCM salvo com sucesso'})
+    try:
+        current_user.fcm_token = token
+        db.session.commit()
+        current_app.logger.info(f"FCM token salvo para usuário {current_user.id}: {token[:20]}...")
+        return jsonify({'message': 'Token FCM salvo com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro ao salvar FCM token para usuário {current_user.id}: {str(e)}")
+        return jsonify({'error': 'Erro ao salvar token'}), 500
 
 @main.route('/admin/login-as/<int:user_id>')
 @login_required
