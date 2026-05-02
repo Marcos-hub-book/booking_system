@@ -1,4 +1,4 @@
-const CACHE_NAME = 'booking-system-cache-v4';
+const CACHE_NAME = 'booking-system-cache-v5';
 
 const STATIC_ASSETS = [
   '/static/css/styles.css',

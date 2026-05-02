@@ -1,95 +1,229 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="width:100%;max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
-  
-  <h2 style="font-weight:600;font-size:1.25rem;margin:0;">Meu perfil</h2>
 
-  <!-- Avatar -->
-  <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;background:#f2f3f5;">
-    <img 
-      id="profilePreview"
-      src="{{ image_url(current_user.profile_photo) }}" 
-      alt="Foto" 
-      style="width:100%;height:100%;object-fit:cover;"
-      loading="lazy"
-    >
+<style>
+  .pr-root{max-width:420px;margin:0 auto;padding:0 0 40px;}
+  .pr-header{display:flex;align-items:center;gap:12px;padding:20px 0 24px}
+  .pr-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e3e7eb;border-radius:10px;background:#fff;color:#232323;text-decoration:none;flex-shrink:0}
+  .pr-title{font-size:1.1rem;font-weight:600;color:#232323}
+
+  /* Hero */
+  .pr-hero{border:1px solid #eef1f4;border-radius:16px;overflow:hidden;margin-bottom:10px;background:#fff}
+  .pr-cover{width:100%;height:110px;background:#f3f4f6;position:relative;overflow:hidden;cursor:pointer;display:block}
+  .pr-cover-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#9ca3af;position:absolute;inset:0}
+  #cover-preview{display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .pr-cover-edit{position:absolute;top:8px;right:8px;display:none;align-items:center;gap:5px;background:rgba(0,0,0,0.45);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  .pr-hero-bottom{padding:0 16px 16px;position:relative}
+  .pr-avatar-wrap{position:relative;display:inline-block;margin-top:-28px;margin-bottom:10px;cursor:pointer}
+  .pr-avatar{width:56px;height:56px;border-radius:50%;background:#e5e7eb;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:#6b7280;overflow:hidden}
+  .pr-avatar img{width:100%;height:100%;object-fit:cover}
+  .pr-avatar-edit-btn{position:absolute;bottom:0;right:0;width:18px;height:18px;border-radius:50%;background:#232323;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .pr-hero-meta{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+  .pr-hero-badges{display:flex;gap:6px;padding-bottom:4px;flex-wrap:wrap;justify-content:flex-end}
+  .pr-plan-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;background:#f3f4f6;border:1px solid #e5e7eb;font-size:11px;font-weight:500;color:#6b7280}
+  .pr-link-pill{display:inline-flex;align-items:center;gap:5px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;font-size:12px;color:#6b7280;cursor:pointer}
+  .pr-hero-name{font-size:15px;font-weight:600;color:#232323;margin-bottom:2px;margin-top:8px}
+  .pr-hero-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#9ca3af}
+
+  /* Sections */
+  .pr-section{background:#fff;border:1px solid #eef1f4;border-radius:16px;overflow:hidden;margin-bottom:10px}
+  .pr-section-header{padding:14px 16px 10px}
+  .pr-section-label{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.07em}
+  .pr-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid #f3f4f6}
+  .pr-row-icon{width:32px;height:32px;border-radius:8px;background:#f9fafb;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .pr-row-body{flex:1;min-width:0}
+  .pr-row-label{font-size:12px;color:#6b7280;margin-bottom:2px}
+  input.pr-input{width:100%;border:none;outline:none;background:transparent;font-size:14px;font-weight:500;color:#232323;font-family:inherit;padding:0}
+  input.pr-input::placeholder{color:#d1d5db;font-weight:400}
+  .pr-plan-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #f3f4f6}
+  .pr-plan-info{flex:1}
+  .pr-plan-name{font-size:14px;font-weight:500;color:#232323}
+  .pr-plan-sub{font-size:12px;color:#9ca3af;margin-top:1px}
+  .pr-manage-btn{font-size:13px;font-weight:500;color:#232323;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:6px 12px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .pr-upload-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid #f3f4f6;cursor:pointer}
+  .pr-upload-label{flex:1;font-size:14px;color:#6b7280}
+  .pr-upload-badge{font-size:12px;color:#9ca3af;background:#f9fafb;border:1px solid #eef1f4;border-radius:8px;padding:4px 10px}
+
+  /* Footer */
+  .pr-footer{display:flex;gap:8px;justify-content:flex-end;padding-top:4px}
+  .pr-btn-cancel{background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:9px 16px;font-size:0.9rem;color:#232323;cursor:pointer;text-decoration:none;display:inline-block}
+  .pr-btn-save{background:#232323;border:none;border-radius:10px;padding:9px 16px;font-size:0.9rem;color:#fff;cursor:pointer;font-weight:500}
+</style>
+
+<div class="pr-root">
+
+  <!-- Header -->
+  <div class="pr-header">
+    <a href="{{ url_for('main.dashboard') }}" class="pr-back">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div class="pr-title">Meu perfil</div>
   </div>
 
-  <!-- Form -->
-  <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:10px;">
-    
-    <label>Nome do salão/clínica</label>
-    <input type="text" name="company_name" value="{{ current_user.company_name }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
+  <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0;">
 
-    <label>Link Exclusivo</label>
-      <div onclick="copyLink(this)" title="Clique para copiar"
-          style="padding:10px 14px;border:1px solid #e3e7eb;border-radius:10px;background:#f8f9fa;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;user-select:none;">
-        <span style="font-size:0.9rem;color:#444;">poraqui.online/{{ current_user.username }}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
+    <!-- Hero card -->
+    <div class="pr-hero">
+
+      <!-- Capa -->
+      <label class="pr-cover" for="inp-cover" id="cover-area">
+        <div class="pr-cover-placeholder" id="cover-placeholder">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Adicionar foto de capa
+        </div>
+        {% if current_user.cover_photo %}
+        <img id="cover-preview" src="{{ image_url(current_user.cover_photo) }}" style="display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">
+        <button type="button" class="pr-cover-edit" id="cover-edit-btn" style="display:flex;" onclick="event.preventDefault();document.getElementById('inp-cover').click()">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Alterar capa
+        </button>
+        {% else %}
+        <img id="cover-preview" src="">
+        <button type="button" class="pr-cover-edit" id="cover-edit-btn" onclick="event.preventDefault();document.getElementById('inp-cover').click()">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Alterar capa
+        </button>
+        {% endif %}
+        <input type="file" name="cover_photo" id="inp-cover" accept="image/*" style="display:none" onchange="previewCover(event)">
+      </label>
+
+      <!-- Avatar + badges + nome -->
+      <div class="pr-hero-bottom">
+        <div class="pr-hero-meta">
+          <label class="pr-avatar-wrap" for="inp-avatar">
+            <div class="pr-avatar" id="avatar-el">
+              {% if current_user.profile_photo %}
+                <img src="{{ image_url(current_user.profile_photo) }}" alt="Foto de perfil">
+              {% else %}
+                {{ (current_user.name or 'U')[0]|upper }}
+              {% endif %}
+            </div>
+            <div class="pr-avatar-edit-btn">
+              <svg width="10" height="10" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <input type="file" name="profile_photo" id="inp-avatar" accept="image/*" style="display:none" onchange="previewAvatar(event)">
+          </label>
+
+          <div class="pr-hero-badges">
+            <div class="pr-plan-badge">
+              <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/></svg>
+              {{ (current_user.plan or 'free')|capitalize }}
+            </div>
+            <div class="pr-link-pill" onclick="copyLink(this)">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copiar link</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pr-hero-name">{{ current_user.company_name or current_user.name or 'Meu Negócio' }}</div>
+        <div class="pr-hero-link">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          poraqui.online/{{ current_user.username }}
+        </div>
       </div>
-
-      <script>
-      function copyLink(el) {
-        navigator.clipboard.writeText('poraqui.online/{{ current_user.username }}');
-        const span = el.querySelector('span');
-        span.textContent = 'Copiado!';
-        setTimeout(() => span.textContent = 'poraqui.online/{{ current_user.username }}', 2000);
-      }
-      </script>
-
-    <label>Nome completo</label>
-    <input type="text" name="full_name" value="{{ current_user.full_name }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
-
-    <label>Telefone</label>
-    <input type="text" name="phone" value="{{ current_user.phone }}" style="padding:10px;border:1px solid #e3e7eb;border-radius:10px;">
-
-    <!-- Plano -->
-    <div style="display:flex;align-items:center;justify-content:space-between;background:#f9fafb;border:1px solid #e3e7eb;border-radius:10px;padding:10px;">
-      <div>
-        <div style="font-size:0.9rem;color:#6b7280;">Plano atual</div>
-        <div style="font-weight:600;">{{ (current_user.plan or 'free')|upper }}</div>
-      </div>
-      <a href="{{ url_for('main.billing') }}" style="background:#232323;color:#fff;border:none;border-radius:8px;padding:8px 12px;text-decoration:none;">Gerenciar</a>
     </div>
 
-    <!-- Upload -->
-    <label>Foto de perfil</label>
-    <input 
-      type="file" 
-      name="profile_photo" 
-      accept="image/*" 
-      onchange="previewImage(event)"
-      style="padding:8px;border:1px solid #e3e7eb;border-radius:10px;"
-    >
-    
-    <label>Foto de Capa</label>
-    <input 
-      type="file" 
-      name="cover_photo" 
-      accept="image/*" 
-      style="padding:8px;border:1px solid #e3e7eb;border-radius:10px;"
-    >
+    <!-- Negócio -->
+    <div class="pr-section" style="margin-top:10px;">
+      <div class="pr-section-header"><div class="pr-section-label">Negócio</div></div>
+      <div class="pr-row">
+        <div class="pr-row-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color:#9ca3af"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="pr-row-body">
+          <div class="pr-row-label">Nome do salão / clínica</div>
+          <input class="pr-input" type="text" name="company_name" value="{{ current_user.company_name or '' }}" placeholder="Ex: Studio Arte & Beleza">
+        </div>
+      </div>
+    </div>
+
+    <!-- Dados pessoais -->
+    <div class="pr-section">
+      <div class="pr-section-header"><div class="pr-section-label">Dados pessoais</div></div>
+      <div class="pr-row">
+        <div class="pr-row-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color:#9ca3af"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="pr-row-body">
+          <div class="pr-row-label">Nome completo</div>
+          <input class="pr-input" type="text" name="full_name" value="{{ current_user.full_name or '' }}" placeholder="Seu nome completo">
+        </div>
+      </div>
+      <div class="pr-row">
+        <div class="pr-row-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color:#9ca3af"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 9.87 19.79 19.79 0 0 1 1.61 1.25 2 2 0 0 1 3.6 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 7.91a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </div>
+        <div class="pr-row-body">
+          <div class="pr-row-label">Telefone</div>
+          <input class="pr-input" type="tel" name="phone" value="{{ current_user.phone or '' }}" placeholder="(11) 99999-9999">
+        </div>
+      </div>
+    </div>
+
+    <!-- Assinatura -->
+    <div class="pr-section">
+      <div class="pr-section-header"><div class="pr-section-label">Assinatura</div></div>
+      <div class="pr-plan-row">
+        <div class="pr-row-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color:#9ca3af"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <div class="pr-plan-info">
+          <div class="pr-plan-name">Plano {{ (current_user.plan or 'free')|capitalize }}</div>
+          {% if current_user.subscription_status == 'trial' and current_user.trial_ends_at %}
+          <div class="pr-plan-sub">Teste até {{ current_user.trial_ends_at.strftime('%d/%m/%Y') }}</div>
+          {% else %}
+          <div class="pr-plan-sub">Assinatura ativa</div>
+          {% endif %}
+        </div>
+        <a href="{{ url_for('main.billing') }}" class="pr-manage-btn">Gerenciar</a>
+      </div>
+    </div>
 
     <!-- Botões -->
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <a href="{{ url_for('main.dashboard') }}" style="background:#fff;border:1px solid #e3e7eb;border-radius:10px;padding:10px 14px;text-decoration:none;color:#232323;">Voltar</a>
-      <button type="submit" style="background:#232323;color:#fff;border:none;border-radius:10px;padding:10px 14px;">Salvar</button>
+    <div class="pr-footer">
+      <a href="{{ url_for('main.dashboard') }}" class="pr-btn-cancel">Cancelar</a>
+      <button type="submit" class="pr-btn-save">Salvar alterações</button>
     </div>
 
   </form>
 </div>
 
-<!-- Preview Script -->
 <script>
-function previewImage(event) {
-  const reader = new FileReader();
-  reader.onload = function(){
-    document.getElementById('profilePreview').src = reader.result;
-  };
-  reader.readAsDataURL(event.target.files[0]);
-}
+  function previewCover(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const img = document.getElementById('cover-preview');
+      img.src = ev.target.result;
+      img.style.display = 'block';
+      img.style.position = 'absolute';
+      img.style.inset = '0';
+      document.getElementById('cover-placeholder').style.display = 'none';
+      const btn = document.getElementById('cover-edit-btn');
+      btn.style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function previewAvatar(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const el = document.getElementById('avatar-el');
+      el.innerHTML = '<img src="'+ev.target.result+'" style="width:100%;height:100%;object-fit:cover;">';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function copyLink(el){
+    navigator.clipboard.writeText('poraqui.online/{{ current_user.username }}').catch(()=>{});
+    const span = el.querySelector('span');
+    span.textContent = 'Copiado!';
+    setTimeout(()=>{ span.textContent = 'Copiar link'; }, 2000);
+  }
 </script>
 
 {% endblock %}

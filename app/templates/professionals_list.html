@@ -1,44 +1,79 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="display: flex; align-items: center; margin-bottom: 32px;">
-    <a href="{{ back_url }}" 
-        style="
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            font-size: 2rem;
-            color: #232323;
-            text-decoration: none;
-            background: none;
-            border: none;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            z-index: 1000;
-        "
-        onmouseover="this.style.background='#f2f2f2'; this.style.transform='translateX(-2px)';"
-        onmouseout="this.style.background='transparent'; this.style.transform='none';">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <path d="M15 18l-6-6 6-6"/>
-        </svg>
-        <span style="position: absolute; left: -9999px;">Voltar</span>
+
+<style>
+  .pl-root{width:100%;max-width:520px;margin:0 auto;padding:0 12px 40px;}
+
+  .pl-header{display:flex;align-items:center;gap:12px;padding:20px 0 20px;}
+  .pl-back{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #e3e7eb;border-radius:10px;background:#fff;color:#232323;text-decoration:none;flex-shrink:0;}
+  .pl-title{font-size:1.1rem;font-weight:600;color:#232323;flex:1;}
+  .pl-add-btn{display:inline-flex;align-items:center;gap:6px;background:#232323;color:#fff;padding:9px 14px;border-radius:10px;text-decoration:none;font-size:0.875rem;font-weight:500;white-space:nowrap;flex-shrink:0;}
+
+  .pl-list{display:flex;flex-direction:column;gap:8px;list-style:none;padding:0;margin:0;}
+
+  .pl-card{background:#fff;border:1px solid #eef1f4;border-radius:14px;display:flex;align-items:center;gap:12px;padding:12px 14px;transition:border-color 0.15s;}
+  .pl-card:hover{border-color:#d1d5db;}
+
+  .pl-avatar{width:40px;height:40px;border-radius:50%;background:#232323;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.95rem;font-weight:600;flex-shrink:0;letter-spacing:0.5px;}
+
+  .pl-info{flex:1;min-width:0;}
+  .pl-name{font-size:0.95rem;font-weight:600;color:#232323;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .pl-actions{display:flex;gap:4px;flex-shrink:0;}
+  .pl-action-btn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;border:1px solid #e3e7eb;background:#fff;color:#6b7280;text-decoration:none;transition:all 0.12s;}
+  .pl-action-btn:hover{background:#f3f4f6;border-color:#d1d5db;color:#232323;}
+  .pl-action-btn.delete:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+
+  .pl-empty{text-align:center;padding:48px 20px;color:#9ca3af;font-size:0.9rem;}
+  .pl-empty-icon{width:48px;height:48px;border-radius:14px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+</style>
+
+<div class="pl-root">
+
+  <div class="pl-header">
+    <a href="{{ url_for('main.dashboard') }}" class="pl-back">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
     </a>
-</div>
-<div style="max-width: 500px; margin: 0 auto;">
-    <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 18px;">Profissionais</h2>
-    <a href="{{ url_for('main.add_professional') }}" style="background: #232323; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-bottom: 18px; display: inline-block;">Adicionar Profissional</a>
-    <ul style="list-style: none; padding: 0;">
-        {% for p in professionals %}
-        <li style="background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid #e3e7eb; display: flex; align-items: center; justify-content: space-between;">
-            <span>{{ p.name }}</span>
-            <span>
-                <a href="{{ url_for('main.edit_professional', professional_id=p.id) }}" title="Editar" style="margin-right: 10px; color: #232323;">
-                    &#9998;
-                </a>
-                <a href="{{ url_for('main.confirm_delete_professional', professional_id=p.id) }}" title="Excluir" style="color: #d32f2f; font-size: 1.2rem; margin-left: 8px;">
-                    &#128465;
-                </a>
-            </span>
-        </li>
-        {% endfor %}
-    </ul>
+    <div class="pl-title">Profissionais</div>
+    <a href="{{ url_for('main.add_professional') }}" class="pl-add-btn">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Novo profissional
+    </a>
+  </div>
+
+  {% if professionals %}
+  <ul class="pl-list">
+    {% for p in professionals %}
+    <li class="pl-card">
+      <div class="pl-avatar">{{ p.name[0]|upper }}</div>
+      <div class="pl-info">
+        <div class="pl-name">{{ p.name }}</div>
+      </div>
+      <div class="pl-actions">
+        <a href="{{ url_for('main.edit_professional', professional_id=p.id) }}" class="pl-action-btn" title="Editar">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </a>
+        <a href="{{ url_for('main.confirm_delete_professional', professional_id=p.id) }}" class="pl-action-btn delete" title="Excluir">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </a>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% else %}
+  <div class="pl-empty">
+    <div class="pl-empty-icon">
+      <svg width="22" height="22" fill="none" stroke="#9ca3af" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div style="font-weight:600;color:#374151;margin-bottom:4px;">Nenhum profissional cadastrado</div>
+    <div style="margin-bottom:16px;">Adicione profissionais para organizar sua agenda.</div>
+    <a href="{{ url_for('main.add_professional') }}" class="pl-add-btn" style="display:inline-flex;">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Adicionar primeiro profissional
+    </a>
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
