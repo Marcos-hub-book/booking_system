@@ -14,6 +14,10 @@ import jwt
 import hashlib
 from cryptography.fernet import Fernet, InvalidToken
 from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import requests
 import locale
 import cloudinary.uploader
@@ -729,25 +733,87 @@ def _normalize_phone(raw: str) -> str | None:
     return digits if len(digits) == 11 else None
 
 
-# Verifica se existe cliente por telefone (sem criar conta)
-@main.route('/api/auth/check_phone', methods=['POST'])
-def api_auth_check_phone():
+def _is_email(value: str) -> bool:
+    value = (value or '').strip().lower()
+    return '@' in value and '.' in value and ' ' not in value
+
+
+def _lookup_customer_by_identifier(identifier: str):
+    identifier = (identifier or '').strip()
+    if _is_email(identifier):
+        return Customer.query.filter(func.lower(Customer.email) == identifier.lower()).first()
+    phone = _normalize_phone(identifier)
+    if phone:
+        return Customer.query.filter_by(phone=phone).first()
+    return None
+
+
+def _get_email_config():
+    return {
+        'server': os.environ.get('MAIL_SERVER') or current_app.config.get('MAIL_SERVER'),
+        'port': int(os.environ.get('MAIL_PORT') or current_app.config.get('MAIL_PORT') or 0),
+        'username': os.environ.get('MAIL_USERNAME') or current_app.config.get('MAIL_USERNAME'),
+        'password': os.environ.get('MAIL_PASSWORD') or current_app.config.get('MAIL_PASSWORD'),
+        'use_tls': os.environ.get('MAIL_USE_TLS', str(current_app.config.get('MAIL_USE_TLS', 'True'))).lower() in ['true', '1', 'yes'],
+        'use_ssl': os.environ.get('MAIL_USE_SSL', str(current_app.config.get('MAIL_USE_SSL', 'False'))).lower() in ['true', '1', 'yes'],
+        'sender': os.environ.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
+    }
+
+
+def _send_email(subject: str, recipient: str, body: str):
+    cfg = _get_email_config()
+    if not cfg['server'] or not cfg['username'] or not cfg['password'] or not cfg['sender']:
+        raise RuntimeError('Email não está configurado.')
+    msg = MIMEMultipart()
+    msg['From'] = cfg['sender']
+    msg['To'] = recipient
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+    if cfg['use_ssl']:
+        server = smtplib.SMTP_SSL(cfg['server'], cfg['port'])
+    else:
+        server = smtplib.SMTP(cfg['server'], cfg['port'])
+        if cfg['use_tls']:
+            server.starttls()
+    server.login(cfg['username'], cfg['password'])
+    server.sendmail(cfg['sender'], [recipient], msg.as_string())
+    server.quit()
+
+
+def _get_password_reset_serializer():
+    return URLSafeTimedSerializer(_get_jwt_secret())
+
+
+def _generate_password_reset_token(customer_id: int):
+    return _get_password_reset_serializer().dumps({'cid': customer_id})
+
+
+def _verify_password_reset_token(token: str, max_age: int = 3600):
+    try:
+        data = _get_password_reset_serializer().loads(token, max_age=max_age)
+        return data.get('cid')
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+# Verifica se existe cliente por telefone ou email (sem criar conta)
+@main.route('/api/auth/check_identifier', methods=['POST'])
+def api_auth_check_identifier():
     data = request.get_json(silent=True) or request.form or {}
     salao_slug = (data.get('salao_slug') or '').strip()
     admin = User.query.filter_by(username=salao_slug, role='admin').first()
     if not admin:
         return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-    phone_raw = data.get('phone')
-    phone = _normalize_phone(phone_raw)
-    if not phone:
-        return jsonify({'ok': False, 'error': 'invalid_phone'}), 400
-    customer = Customer.query.filter_by(phone=phone).first()
+    identifier = (data.get('identifier') or '').strip()
+    if not identifier:
+        return jsonify({'ok': False, 'error': 'missing_identifier'}), 400
+    customer = _lookup_customer_by_identifier(identifier)
     if not customer:
         return jsonify({'ok': True, 'exists': False})
     return jsonify({'ok': True, 'exists': True, 'name': customer.name})
 
 
-# Login por telefone + senha (gera cookie JWT do cliente)
+# Login por telefone ou email + senha (gera cookie JWT do cliente)
 @main.route('/api/auth/login', methods=['POST'])
 def api_auth_login():
     data = request.get_json(silent=True) or {}
@@ -755,14 +821,13 @@ def api_auth_login():
     admin = User.query.filter_by(username=salao_slug, role='admin').first()
     if not admin:
         return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-    phone = _normalize_phone(data.get('phone'))
+    identifier = (data.get('identifier') or '').strip()
     password = (data.get('password') or '').strip()
-    if not (phone and password):
+    if not (identifier and password):
         return jsonify({'ok': False, 'error': 'missing_fields'}), 400
-    customer = Customer.query.filter_by(phone=phone).first()
+    customer = _lookup_customer_by_identifier(identifier)
     if not customer or not customer.check_password(password):
         return jsonify({'ok': False, 'error': 'invalid_credentials'}), 401
-    # Link with this salon/admin if not linked yet
     if admin not in customer.admins:
         customer.admins.append(admin)
         db.session.commit()
@@ -781,37 +846,40 @@ def api_auth_register():
     admin = User.query.filter_by(username=salao_slug, role='admin').first()
     if not admin:
         return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
-    phone = _normalize_phone(data.get('phone'))
+    identifier = (data.get('identifier') or '').strip()
+    phone = _normalize_phone(data.get('phone')) or (_normalize_phone(identifier) if not _is_email(identifier) else None)
     first_name = (data.get('firstName') or '').strip()
     last_name = (data.get('lastName') or '').strip()
-    email = (data.get('email') or '').strip() or None
-    birthdate = (data.get('birthdate') or '').strip()
+    email = (data.get('email') or '').strip().lower() or (identifier.strip().lower() if _is_email(identifier) else None)
     password = (data.get('password') or '').strip()
-    if not (phone and first_name and birthdate and password):
+    if not (first_name and email and password and phone):
         return jsonify({'ok': False, 'error': 'missing_fields'}), 400
+    if not _is_email(email):
+        return jsonify({'ok': False, 'error': 'invalid_email'}), 400
     full_name = f"{first_name} {last_name}".strip()
-    try:
-        bd = datetime.strptime(birthdate, '%Y-%m-%d').date()
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_birthdate'}), 400
-    customer = Customer.query.filter_by(phone=phone).first()
-    if not customer:
-        customer = Customer(name=full_name, birthdate=bd, phone=phone, email=email)
-        customer.set_password(password)
-        db.session.add(customer)
-        db.session.commit()
-    else:
-        # Completa dados se necessário
-        if not customer.password:
-            customer.set_password(password)
-        if email:
-            customer.email = email
-        if full_name and customer.name != full_name:
-            customer.name = full_name
-        if not customer.birthdate:
-            customer.birthdate = bd
-        db.session.commit()
-    # Garante vínculo com o salão
+    birthdate = (data.get('birthdate') or '').strip()
+    bd = datetime.now().date()
+    if birthdate:
+        try:
+            bd = datetime.strptime(birthdate, '%Y-%m-%d').date()
+        except Exception:
+            return jsonify({'ok': False, 'error': 'invalid_birthdate'}), 400
+    # Do not merge or update existing customers here. If email or phone is already
+    # registered, refuse the registration and ask the user to recover the password.
+    if phone:
+        existing_phone = Customer.query.filter_by(phone=phone).first()
+        if existing_phone:
+            return jsonify({'ok': False, 'error': 'phone_taken'}), 400
+    if email:
+        existing_email = Customer.query.filter(func.lower(Customer.email) == email.lower()).first()
+        if existing_email:
+            return jsonify({'ok': False, 'error': 'email_taken'}), 400
+
+    # Create new customer record
+    customer = Customer(name=full_name, birthdate=bd, phone=phone or '', email=email)
+    customer.set_password(password)
+    db.session.add(customer)
+    db.session.commit()
     if admin not in customer.admins:
         customer.admins.append(admin)
         db.session.commit()
@@ -821,12 +889,90 @@ def api_auth_register():
     resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
     return resp
 
+
 @main.route('/logout-customer', methods=['POST'])
 def logout_customer():
     resp = jsonify({'ok': True})
     resp.set_cookie('customer_jwt', '', expires=0, path='/')
     session.pop('customer_id', None)
     return resp
+
+@main.route('/<salao_slug>/cliente/adicionar-email', methods=['GET', 'POST'])
+def cliente_add_email(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
+    if not getattr(g, 'customer_id', None):
+        return redirect(url_for('main.login_phone_screen', salao_slug=salao_slug))
+    customer = Customer.query.get(g.customer_id)
+    if not customer:
+        return redirect(url_for('main.login_phone_screen', salao_slug=salao_slug))
+    if customer.email:
+        return redirect(url_for('main.cliente_opcoes', salao_slug=salao_slug))
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            flash('Informe um email válido.', 'danger')
+            return render_template('cliente_add_email.html', salao_slug=salao_slug, email='')
+        existing = Customer.query.filter(func.lower(Customer.email) == email.lower(), Customer.id != customer.id).first()
+        if existing:
+            flash('Este email já está em uso. Escolha outro.', 'danger')
+            return render_template('cliente_add_email.html', salao_slug=salao_slug, email=email)
+        customer.email = email
+        db.session.commit()
+        flash('Email cadastrado com sucesso.', 'success')
+        return redirect(url_for('main.cliente_opcoes', salao_slug=salao_slug))
+    return render_template('cliente_add_email.html', salao_slug=salao_slug, email='')
+
+@main.route('/<salao_slug>/esqueci-senha', methods=['GET', 'POST'])
+def cliente_forgot_password(salao_slug):
+    admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
+    if not _public_link_allowed(admin):
+        abort(404)
+    message = None
+    if request.method == 'POST':
+        identifier = (request.form.get('identifier') or '').strip()
+        customer = _lookup_customer_by_identifier(identifier)
+        if customer and customer.email:
+            try:
+                token = _generate_password_reset_token(customer.id)
+                reset_url = url_for('main.cliente_reset_password', token=token, _external=True)
+                body = f"Olá {customer.name},\n\nClique no link abaixo para redefinir sua senha:\n{reset_url}\n\nSe você não solicitou essa alteração, ignore esta mensagem."
+                _send_email('Redefinição de senha', customer.email, body)
+                message = 'Enviamos um email com instruções para redefinir sua senha.'
+            except Exception as exc:
+                current_app.logger.exception('Falha ao enviar email de reset: %s', exc)
+                message = 'Não foi possível enviar o email. Verifique a configuração de email.'
+        else:
+            message = 'Se o cadastro existir e tiver email, você receberá uma mensagem em breve.'
+    return render_template('cliente_forgot_password.html', salao_slug=salao_slug, message=message)
+
+@main.route('/reset-senha/<token>', methods=['GET', 'POST'])
+def cliente_reset_password(token):
+    customer_id = _verify_password_reset_token(token)
+    if not customer_id:
+        flash('Link inválido ou expirado.', 'danger')
+        return redirect(url_for('main.index'))
+    customer = Customer.query.get(customer_id)
+    if not customer:
+        flash('Conta inválida.', 'danger')
+        return redirect(url_for('main.index'))
+    if request.method == 'POST':
+        password = (request.form.get('password') or '').strip()
+        confirm_password = (request.form.get('confirm_password') or '').strip()
+        if len(password) < 6:
+            flash('Senha deve ter ao menos 6 caracteres.', 'danger')
+            return render_template('cliente_reset_password.html', token=token)
+        if password != confirm_password:
+            flash('As senhas não coincidem.', 'danger')
+            return render_template('cliente_reset_password.html', token=token)
+        customer.set_password(password)
+        db.session.commit()
+        flash('Senha redefinida com sucesso. Agora faça login.', 'success')
+        if customer.admins:
+            return redirect(url_for('main.login_phone_screen', salao_slug=customer.admins[0].username))
+        return redirect(url_for('main.index'))
+    return render_template('cliente_reset_password.html', token=token)
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -1948,10 +2094,12 @@ def cliente_opcoes(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not _public_link_allowed(admin):
         abort(404)
-    # exige autenticação de cliente
     redir = _require_customer_auth(salao_slug)
     if redir:
         return redir
+    customer = Customer.query.get(g.customer_id)
+    if customer and not customer.email:
+        return redirect(url_for('main.cliente_add_email', salao_slug=salao_slug))
     has_locations = Location.query.filter_by(admin_id=admin.id).count() > 0
     return render_template('cliente_opcoes.html', salao_slug=salao_slug, has_locations=has_locations)
 

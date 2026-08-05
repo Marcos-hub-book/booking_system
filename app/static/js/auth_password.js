@@ -1,6 +1,6 @@
 (function(){
   const $ = (sel) => document.querySelector(sel);
-  const phoneInput = $('#phone-input');
+  const identifierInput = $('#identifier-input');
   const btnStart = $('#btn-start');
   const screenLogin = $('#screen-login');
   const screenPassword = $('#screen-password');
@@ -15,13 +15,13 @@
   const firstName = $('#first-name');
   const lastName = $('#last-name');
   const email = $('#email');
-  const birthdate = $('#birthdate');
-  const phoneReadonly = $('#phone-readonly');
+  const phoneRegInput = $('#phone-input-reg');
   const passReg = $('#password-register');
   const passReg2 = $('#password-register-2');
   const btnRegister = $('#btn-register');
 
-  let rawDigits = '';
+  let identifierValue = '';
+  let isPhoneIdentifier = false;
   let phoneNormalized = '';
 
   function onlyDigits(s){ return (s || '').replace(/\D/g,''); }
@@ -36,7 +36,6 @@
     if(p.length <= 7) return `(${a}) ${b} ${c}`;
     return `(${a}) ${b} ${c}-${d}`;
   }
-  window.maskPhone = maskPhone;
 
   function setMsg(text, error=true){
     if(!msg) return;
@@ -47,11 +46,15 @@
   function show(el){ if(el) el.style.display='block'; }
   function hide(el){ if(el) el.style.display='none'; }
 
-  async function checkPhone(){
+  function isEmail(value){
+    return value && value.includes('@') && value.includes('.') && !value.includes(' ');
+  }
+
+  async function checkIdentifier(){
     try{
-      const res = await fetch('/api/auth/check_phone', {
+      const res = await fetch('/api/auth/check_identifier', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ phone: phoneNormalized, salao_slug: window.SALAO_SLUG })
+        body: JSON.stringify({ identifier: identifierValue, salao_slug: window.SALAO_SLUG })
       });
       return await res.json();
     }catch(e){ return { ok:false, error:'network' }; }
@@ -64,7 +67,7 @@
     try{
       const res = await fetch('/api/auth/login', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ phone: phoneNormalized, password: pwd, salao_slug: window.SALAO_SLUG })
+        body: JSON.stringify({ identifier: identifierValue, password: pwd, salao_slug: window.SALAO_SLUG })
       });
       const data = await res.json();
       if(!data.ok){ setMsg('Credenciais inválidas.'); return; }
@@ -76,40 +79,86 @@
     setMsg('');
     const fn = (firstName.value||'').trim();
     const ln = (lastName.value||'').trim();
-    const bd = (birthdate.value||'').trim();
+    const emailValue = (email.value||'').trim();
     const pw1 = (passReg.value||'').trim();
     const pw2 = (passReg2.value||'').trim();
     if(fn.length < 2){ setMsg('Informe seu nome.'); return; }
-    if(!bd){ setMsg('Informe sua data de nascimento.'); return; }
-    if(pw1.length < 4){ setMsg('Senha muito curta (mín. 4).'); return; }
+    if(!emailValue || !isEmail(emailValue)){ setMsg('Informe um email válido.'); return; }
+    // Ensure phone is provided and normalized
+    if(!phoneNormalized){
+      const phoneRaw = (phoneRegInput && phoneRegInput.value) ? onlyDigits(phoneRegInput.value) : '';
+      if(phoneRaw.length !== 11){ setMsg('Informe um telefone válido com 11 dígitos.'); return; }
+      phoneNormalized = phoneRaw;
+    }
+    if(pw1.length < 6){ setMsg('Senha muito curta (mín. 6).'); return; }
     if(pw1 !== pw2){ setMsg('As senhas não conferem.'); return; }
     try{
       const res = await fetch('/api/auth/register', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ salao_slug: window.SALAO_SLUG, firstName: fn, lastName: ln, email: (email.value||'').trim(), birthdate: bd, phone: phoneNormalized, password: pw1 })
+        body: JSON.stringify({
+          salao_slug: window.SALAO_SLUG,
+          identifier: identifierValue,
+          phone: phoneNormalized,
+          firstName: fn,
+          lastName: ln,
+          email: emailValue,
+          password: pw1
+        })
       });
       const data = await res.json();
-      if(!data.ok){ setMsg('Erro ao salvar cadastro.'); return; }
+      if(!data.ok){
+        if(data.error === 'email_taken'){
+          setMsg('Este email já está cadastrado. Use "Esqueci minha senha" para recuperar a conta.');
+        } else if(data.error === 'phone_taken'){
+          setMsg('Este telefone já está cadastrado. Use "Esqueci minha senha" para recuperar a conta.');
+        } else {
+          setMsg('Erro ao salvar cadastro.');
+        }
+        return;
+      }
       window.location.href = `/${window.SALAO_SLUG}/opcoes`;
     }catch(e){ setMsg('Erro de rede ao salvar cadastro.'); }
   }
 
-  phoneInput && phoneInput.addEventListener('input', () => {
-    rawDigits = onlyDigits(phoneInput.value);
-    phoneInput.value = maskPhone(rawDigits);
+  identifierInput && identifierInput.addEventListener('input', () => {
+    identifierValue = (identifierInput.value||'').trim();
+    if(isEmail(identifierValue)){
+      isPhoneIdentifier = false;
+      phoneNormalized = '';
+      identifierInput.type = 'email';
+    } else {
+      isPhoneIdentifier = true;
+      const digits = onlyDigits(identifierValue);
+      identifierValue = digits;
+      phoneNormalized = digits;
+      identifierInput.value = maskPhone(digits);
+      if(digits.length <= 11){ identifierInput.type = 'tel'; }
+    }
   });
 
   btnStart && btnStart.addEventListener('click', async () => {
-    if(rawDigits.length !== 11){ setMsg('Número inválido. Digite 11 dígitos.'); return; }
-    // Normalizamos para formato local sem +55, pois backend usa conforme salvo
-    phoneNormalized = rawDigits; // ex: 11987654321
-    const chk = await checkPhone();
-    if(!chk || !chk.ok){ setMsg('Erro ao verificar telefone.'); return; }
+    identifierValue = (identifierInput.value||'').trim();
+    if(!identifierValue){ setMsg('Digite telefone ou email.'); return; }
+    if(isEmail(identifierValue)){
+      isPhoneIdentifier = false;
+    } else {
+      const digits = onlyDigits(identifierValue);
+      if(digits.length !== 11){ setMsg('Digite um telefone válido com 11 dígitos.'); return; }
+      identifierValue = digits;
+      isPhoneIdentifier = true;
+      phoneNormalized = digits;
+      identifierInput.value = maskPhone(digits);
+    }
+    const chk = await checkIdentifier();
+    if(!chk || !chk.ok){ setMsg('Erro ao verificar usuário.'); return; }
     if(chk.exists){
       customerName.textContent = chk.name || 'Cliente';
       hide(screenLogin); show(screenPassword);
     } else {
-      phoneReadonly.value = maskPhone(rawDigits);
+      email.value = isPhoneIdentifier ? '' : identifierValue;
+      if(phoneRegInput){
+        phoneRegInput.value = isPhoneIdentifier ? maskPhone(phoneNormalized) : '';
+      }
       hide(screenLogin); show(screenRegister);
     }
   });

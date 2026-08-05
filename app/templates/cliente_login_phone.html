@@ -10,9 +10,9 @@
   <!-- LoginPhoneScreen -->
   <div id="screen-login" class="card-block" style="display:block;">
     <div>
-      <label class="fw-label">Telefone</label>
-      <input id="phone-input" class="fw-input" type="tel" inputmode="numeric" placeholder="(00) 9 0000-0000" maxlength="16" />
-      <small style="color:#6b7280;display:block;margin-top:6px;">Digite seu celular. Ex.: (11) 9 8765-4321</small>
+      <label class="fw-label">Telefone ou email</label>
+      <input id="identifier-input" class="fw-input" type="text" placeholder="Digite telefone ou email" />
+      <small style="color:#6b7280;display:block;margin-top:6px;">Use seu telefone ou email para entrar.</small>
     </div>
     <button id="btn-start" class="fw-btn fw-btn-primary" style="margin-top:12px;">Continuar</button>
   </div>
@@ -24,9 +24,10 @@
       <label class="fw-label">Senha</label>
       <input id="password-input" class="fw-input" type="password" placeholder="Sua senha" />
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <button id="btn-login" class="fw-btn fw-btn-primary">Entrar</button>
       <button id="btn-back-1" class="fw-btn">Voltar</button>
+      <a id="forgot-password-link" href="{{ url_for('main.cliente_forgot_password', salao_slug=salao_slug) }}" style="margin-left:auto;font-size:0.9rem;color:#6366f1;text-decoration:none;align-self:center;">Esqueci minha senha</a>
     </div>
   </div>
 
@@ -43,16 +44,12 @@
         <input id="last-name" class="fw-input" type="text" placeholder="Seu sobrenome" />
       </div>
       <div style="grid-column:1/3;">
-        <label class="fw-label">Email (opcional)</label>
+        <label class="fw-label">Email</label>
         <input id="email" class="fw-input" type="email" placeholder="voce@exemplo.com" />
       </div>
       <div style="grid-column:1/3;">
-        <label class="fw-label">Data de nascimento</label>
-        <input id="birthdate" class="fw-input" type="date" />
-      </div>
-      <div style="grid-column:1/3;">
         <label class="fw-label">Telefone</label>
-        <input id="phone-readonly" class="fw-input" type="text" disabled />
+        <input id="phone-input-reg" class="fw-input" type="tel" placeholder="(00) 9 0000-0000" required />
       </div>
       <div style="grid-column:1/3;">
         <label class="fw-label">Senha</label>
