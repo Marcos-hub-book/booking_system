@@ -750,20 +750,50 @@ def _lookup_customer_by_identifier(identifier: str):
 
 def _get_email_config():
     return {
+        'resend_api_key': os.environ.get('RESEND_API_KEY') or current_app.config.get('RESEND_API_KEY'),
+        'sender': (
+            os.environ.get('RESEND_FROM')
+            or os.environ.get('MAIL_DEFAULT_SENDER')
+            or current_app.config.get('RESEND_FROM')
+            or current_app.config.get('MAIL_DEFAULT_SENDER')
+        ),
         'server': os.environ.get('MAIL_SERVER') or current_app.config.get('MAIL_SERVER'),
         'port': int(os.environ.get('MAIL_PORT') or current_app.config.get('MAIL_PORT') or 0),
         'username': os.environ.get('MAIL_USERNAME') or current_app.config.get('MAIL_USERNAME'),
         'password': os.environ.get('MAIL_PASSWORD') or current_app.config.get('MAIL_PASSWORD'),
         'use_tls': os.environ.get('MAIL_USE_TLS', str(current_app.config.get('MAIL_USE_TLS', 'True'))).lower() in ['true', '1', 'yes'],
         'use_ssl': os.environ.get('MAIL_USE_SSL', str(current_app.config.get('MAIL_USE_SSL', 'False'))).lower() in ['true', '1', 'yes'],
-        'sender': os.environ.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
     }
 
 
 def _send_email(subject: str, recipient: str, body: str):
     cfg = _get_email_config()
+
+    if cfg['resend_api_key'] and cfg['sender']:
+        payload = {
+            'from': cfg['sender'],
+            'to': [recipient],
+            'subject': subject,
+            'text': body,
+        }
+        try:
+            response = requests.post(
+                'https://api.resend.com/emails',
+                headers={'Authorization': f"Bearer {cfg['resend_api_key']}", 'Content-Type': 'application/json'},
+                json=payload,
+                timeout=20,
+            )
+            if response.status_code >= 400:
+                detail = response.text.strip() or response.reason
+                raise RuntimeError(f'Resend API error {response.status_code}: {detail}')
+            return
+        except requests.RequestException as exc:
+            current_app.logger.exception('Falha ao enviar email via Resend: %s', exc)
+            raise RuntimeError(f'Falha ao enviar email via Resend: {exc}') from exc
+
     if not cfg['server'] or not cfg['username'] or not cfg['password'] or not cfg['sender']:
-        raise RuntimeError('Email não está configurado.')
+        raise RuntimeError('Email não está configurado. Defina RESEND_API_KEY/RESEND_FROM ou configure SMTP.')
+
     msg = MIMEMultipart()
     msg['From'] = cfg['sender']
     msg['To'] = recipient
