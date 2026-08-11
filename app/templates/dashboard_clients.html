@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:760px;margin:0 auto;padding:16px;">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;">
+    <a href="{{ url_for('main.dashboard') }}" style="color:#232323;text-decoration:none;font-weight:600;">← Voltar ao painel</a>
+    <h1 style="margin:0;font-size:1.3rem;">Clientes</h1>
+  </div>
+
+  <form method="get" action="{{ url_for('main.dashboard_clients') }}" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+    <input name="search" value="{{ search }}" placeholder="Buscar por nome, telefone ou email" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid #e3e7eb;border-radius:14px;">
+    <select name="order_by" style="padding:12px 14px;border:1px solid #e3e7eb;border-radius:14px;min-width:170px;">
+      <option value="last_appointment" {% if order_by == 'last_appointment' %}selected{% endif %}>Último agendamento</option>
+      <option value="name" {% if order_by == 'name' %}selected{% endif %}>Nome</option>
+    </select>
+    <select name="order_dir" style="padding:12px 14px;border:1px solid #e3e7eb;border-radius:14px;min-width:170px;">
+      <option value="desc" {% if order_dir == 'desc' %}selected{% endif %}>Mais recentes / A → Z</option>
+      <option value="asc" {% if order_dir == 'asc' %}selected{% endif %}>Mais antigos / Z → A</option>
+    </select>
+    <button type="submit" style="padding:12px 18px;border:none;border-radius:14px;background:#232323;color:#fff;font-weight:600;">Aplicar</button>
+  </form>
+
+  {% if not customers_meta %}
+    <div style="padding:28px;border:1px solid #e3e7eb;border-radius:18px;background:#f8fafc;color:#475569;text-align:center;">Nenhum cliente encontrado.</div>
+  {% else %}
+    <div style="display:grid;gap:14px;">
+      {% for item in customers_meta %}
+        <a href="{{ url_for('main.dashboard_cliente_history', customer_id=item.customer.id) }}" style="display:block;padding:22px;border-radius:22px;border:1px solid #e8e5e0;background:#fff;text-decoration:none;color:inherit;box-shadow:0 14px 32px rgba(15,23,42,0.08);transition:transform 0.18s;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px;">
+            <div>
+              <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;color:#111827;">{{ item.customer.name }}</div>
+              <div style="font-size:0.92rem;color:#6b7280;">{{ item.customer.phone or 'Telefone não disponível' }}{% if item.customer.email %} · {{ item.customer.email }}{% endif %}</div>
+            </div>
+            <div style="text-align:right;min-width:140px;">
+              <div style="font-size:0.95rem;font-weight:600;color:#111827;">{{ item.total_appointments }} agendamento{% if item.total_appointments != 1 %}s{% endif %}</div>
+              <div style="font-size:0.85rem;color:#6b7280;">Total pago R$ {{ '%.2f'|format(item.total_spent) }}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            <div style="flex:1;min-width:220px;padding:16px;border-radius:18px;background:#f4f6f8;">
+              <div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em;">Data do último agendamento</div>
+              <div style="font-size:1rem;font-weight:700;color:#111827;">{% if item.last_appointment_date %}{{ item.last_appointment_date }}{% else %}Sem agendamento{% endif %}</div>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

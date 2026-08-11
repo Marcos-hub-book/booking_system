@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
@@ -10,11 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
+  <header class="site-header">
     <nav class="navbar">
       <div class="logo">PorAqui</div>
       <button class="hamb" aria-label="Abrir menu">☰</button>
       <div class="nav-links">
+        <a href="#como-funciona">Como funciona</a>
         <a href="#planos">Planos</a>
         <a href="#depoimentos">Depoimentos</a>
         <a href="#contato">Contato</a>
@@ -23,50 +24,186 @@
       </div>
     </nav>
 
-    <div class="hero">
-      <h1>Agende com praticidade.</h1>
-      <p>Confirmações automáticas, menos esquecimentos, mais clientes.</p>
-    </div>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Agenda inteligente para quem quer vender mais</span>
+        <h1>Transforme seus agendamentos em receita previsível.</h1>
+        <p>PorAqui conecta o seu WhatsApp ao agendamento, envia confirmações automáticas e coloca sua agenda no controle do negócio.</p>
+        <div class="hero-actions">
+          <a href="{{ url_for('main.register') }}" class="btn btn-primario">Comece grátis</a>
+          <a href="{{ url_for('main.login') }}" class="btn btn-secundario">Entrar no painel</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <strong>+5.000</strong>
+            <span>agendamentos mensais</span>
+          </div>
+          <div class="stat">
+            <strong>98%</strong>
+            <span>de confirmações automáticas</span>
+          </div>
+          <div class="stat">
+            <strong>24/7</strong>
+            <span>agenda disponível online</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-image">
+        <div class="device-mockup">
+          <div class="device-header">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="device-screen">
+            <div class="screen-top">PorAqui</div>
+            <div class="screen-content">
+              <div class="screen-card">
+                <p>Agendamento criado em 2s</p>
+                <strong>Cliente: Ana Souza</strong>
+                <span>Corte + Escova</span>
+              </div>
+              <div class="screen-notice">
+                <strong>✅ Confirmação enviada</strong>
+                <span>WhatsApp em 1 clique</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </header>
 
   <section class="beneficios">
-    <h2>Por que usar o PorAqui?</h2>
+    <div class="section-head">
+      <span>Por que escolher</span>
+      <h2>O sistema que cuida da agenda enquanto você cuida do atendimento.</h2>
+    </div>
     <div class="cards">
       <div class="card">
-        <h3>🔔 Lembretes automáticos</h3>
-        <p>Seu cliente recebe um lembrete para confirmar o agendamento.</p>
+        <h3>Link de agendamento direto</h3>
+        <p>Compartilhe o link no WhatsApp e o cliente agenda em poucos segundos.</p>
       </div>
       <div class="card">
-        <h3>💻 Fácil de usar</h3>
-        <p>Interface moderna, intuitiva e pensada para o seu dia a dia.</p>
+        <h3>Confirmações automáticas</h3>
+        <p>O cliente recebe lembretes e confirmações sem que você precise intervir.</p>
       </div>
       <div class="card">
-        <h3>⚙️ Personalizável</h3>
-        <p>Adapte sua agenda e horários de acordo com seu negócio.</p>
+        <h3>Controle total do negócio</h3>
+        <p>Profissionais, horários, locais e relatórios em um único painel prático.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="como-funciona" class="how-it-works">
+    <div class="section-head">
+      <span>Como funciona</span>
+      <h2>Um fluxo visual e automático para capturar clientes e manter tudo organizado.</h2>
+    </div>
+    <div class="how-grid">
+      <div class="how-steps">
+        <button class="step active" data-step="0">
+          <strong>1</strong>
+          <div>
+            <h3>Você compartilha o link</h3>
+            <p>Envie o link pelo WhatsApp e o cliente chega direto na página de agendamento.</p>
+          </div>
+        </button>
+        <button class="step" data-step="1">
+          <strong>2</strong>
+          <div>
+            <h3>Cliente acessa em segundos</h3>
+            <p>Fluxo simples para o cliente escolher serviço, horário e confirmar.</p>
+          </div>
+        </button>
+        <button class="step" data-step="2">
+          <strong>3</strong>
+          <div>
+            <h3>Lembretes automáticos</h3>
+            <p>O cliente recebe mensagens de confirmação e lembrete antes do horário.</p>
+          </div>
+        </button>
+        <button class="step" data-step="3">
+          <strong>4</strong>
+          <div>
+            <h3>Você no controle</h3>
+            <p>Notificações e uma visão completa do seu negócio no painel.</p>
+          </div>
+        </button>
+      </div>
+
+      <div class="how-preview">
+        <div class="preview-slide active" data-step="0">
+          <div class="preview-title">Link compartilhado via WhatsApp</div>
+          <div class="preview-visual whatsapp-card">
+            <div class="whatsapp-header">WhatsApp</div>
+            <div class="message incoming">Olá! Agende seu horário em segundos:</div>
+            <div class="message link">https://poraqui.com/agenda/123</div>
+          </div>
+        </div>
+        <div class="preview-slide" data-step="1">
+          <div class="preview-title">Cliente acessa e escolhe</div>
+          <div class="preview-visual flow-card">
+            <div class="flow-step active">Serviço</div>
+            <div class="flow-step">Profissional</div>
+            <div class="flow-step">Horário</div>
+            <div class="flow-detail">
+              <span>Escova + Mechas</span>
+              <strong>Ter, 14h</strong>
+              <p>Conclua o agendamento em apenas 3 toques.</p>
+            </div>
+          </div>
+        </div>
+        <div class="preview-slide" data-step="2">
+          <div class="preview-title">Lembrete enviado automaticamente</div>
+          <div class="preview-visual whatsapp-card">
+            <div class="whatsapp-header">WhatsApp</div>
+            <div class="message incoming">Seu horário foi confirmado para amanhã às 9h.</div>
+            <div class="message reminder">🔔 Não deixe de chegar no seu horário!</div>
+          </div>
+        </div>
+        <div class="preview-slide" data-step="3">
+          <div class="preview-title">Você no controle</div>
+          <div class="preview-visual dashboard-card">
+            <div class="dash-top"><span>Dashboard</span><strong>Online</strong></div>
+            <div class="dash-metrics">
+              <div><strong>12</strong><span>agendas hoje</span></div>
+              <div><strong>98%</strong><span>confirmados</span></div>
+            </div>
+            <div class="dash-notification">Nova reserva recebida</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <section id="depoimentos" class="depoimentos">
-    <h2>O que estão falando</h2>
+    <div class="section-head">
+      <span>Prova social</span>
+      <h2>O que quem usa PorAqui está falando.</h2>
+    </div>
     <div class="carrossel">
       <div class="depoimento ativo">
-        <p>“Aumentei meus agendamentos em 50% com o PorAqui!”</p>
-        <span>— Maria Silva</span>
+        <p>“Aumentei meus agendamentos em 50% com o PorAqui. Agora o cliente marca direto no WhatsApp e eu só recebo tudo pronto no painel.”</p>
+        <span>— Maria Silva, salão de beleza</span>
       </div>
       <div class="depoimento">
-        <p>“Simples de usar e os clientes adoram os lembretes automáticos.”</p>
-        <span>— João Pereira</span>
+        <p>“O sistema é simples e o cliente entende rápido. Menos faltas, mais confirmações e menos ligações durante o atendimento.”</p>
+        <span>— João Pereira, barbearia</span>
       </div>
       <div class="depoimento">
-        <p>“Economizei tempo e reduzi faltas. Excelente ferramenta!”</p>
-        <span>— Ana Costa</span>
+        <p>“Economizei tempo e reduzi cancelamentos. O lembrete automático é o que mais salva no meu dia a dia.”</p>
+        <span>— Ana Costa, clínica estética</span>
       </div>
     </div>
   </section>
 
   <section id="planos" class="planos">
-    <h2>Escolha seu plano</h2>
+    <div class="section-head">
+      <span>Planos</span>
+      <h2>Escolha a opção ideal para o seu negócio.</h2>
+    </div>
     <div class="planos-container">
       <div class="plano">
         <h3>Básico</h3>
@@ -78,8 +215,8 @@
         </ul>
         <a href="{{ url_for('main.register') }}" class="btn btn-primario">Escolher esse</a>
       </div>
-
       <div class="plano destaque">
+        <span class="badge">Mais vendido</span>
         <h3>Pro</h3>
         <p class="preco">R$29,90<span>/mês</span></p>
         <ul>
@@ -89,7 +226,6 @@
         </ul>
         <a href="{{ url_for('main.register') }}" class="btn btn-primario">Escolher esse</a>
       </div>
-
       <div class="plano">
         <h3>Avançado</h3>
         <p class="preco">R$49,90<span>/mês</span></p>
@@ -104,9 +240,13 @@
   </section>
 
   <section id="contato" class="contact-section">
-    <h2>Fale com um especialista</h2>
-    <p>Precisa de ajuda para escolher o plano ideal? Estamos prontos para te orientar.</p>
-    <a href="https://wa.me/5511991151845" target="_blank" rel="noopener" class="btn btn-whatsapp">💬 Falar no WhatsApp</a>
+    <div class="contact-content">
+      <div>
+        <span>Precisa de ajuda?</span>
+        <h2>Fale com um especialista e tire todas as dúvidas.</h2>
+      </div>
+      <a href="https://wa.me/5511991151845" target="_blank" rel="noopener" class="btn btn-whatsapp">💬 Falar no WhatsApp</a>
+    </div>
   </section>
 
   <footer>

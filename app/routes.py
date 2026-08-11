@@ -692,22 +692,84 @@ def _is_slot_available(professional: Professional, start_dt: datetime, duration:
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
-    print("Form valid:", form.validate_on_submit())
-    print("Email:", form.email.data)
-    print("Password:", form.password.data)
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user:
-            print("Usuário encontrado:", user.email)
-            print("Senha correta?", user.check_password(form.password.data))
-        else:
-            print("Usuário não encontrado")
+        email = (form.email.data or '').strip().lower()
+        user = User.query.filter(func.lower(User.email) == email).first()
         if user and user.check_password(form.password.data):
             login_user(user, remember=True)
             flash('Login successful!', 'success')
             return redirect(url_for('main.dashboard'))
         flash('Login failed. Check your email and password.', 'danger')
     return render_template('login.html', form=form)
+
+
+def _generate_admin_password_reset_token(user_id: int):
+    return _get_password_reset_serializer().dumps({'uid': user_id, 'kind': 'admin'})
+
+
+def _verify_admin_password_reset_token(token: str, max_age: int = 3600):
+    try:
+        data = _get_password_reset_serializer().loads(token, max_age=max_age)
+        if data.get('kind') != 'admin':
+            return None
+        return data.get('uid')
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+@main.route('/login/esqueci-senha', methods=['GET', 'POST'])
+def professional_forgot_password():
+    message = None
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        user = User.query.filter(func.lower(User.email) == email).first()
+        if user and user.email:
+            try:
+                token = _generate_admin_password_reset_token(user.id)
+                reset_url = url_for('main.professional_reset_password', token=token, _external=True)
+                body = (
+                    f"Olá {user.full_name or user.company_name or user.email},\n\n"
+                    "Clique no link abaixo para redefinir sua senha da sua conta:\n"
+                    f"{reset_url}\n\n"
+                    "Se você não solicitou essa alteração, ignore esta mensagem."
+                )
+                _send_email('Redefinição de senha', user.email, body)
+                message = 'Enviamos um email com instruções para redefinir sua senha.'
+            except Exception as exc:
+                current_app.logger.exception('Falha ao enviar email de reset para usuário admin: %s', exc)
+                message = 'Não foi possível enviar o email. Verifique a configuração de email.'
+        else:
+            message = 'Se o cadastro existir e tiver email, você receberá uma mensagem em breve.'
+    return render_template('professional_forgot_password.html', message=message)
+
+
+@main.route('/login/reset-senha/<token>', methods=['GET', 'POST'])
+def professional_reset_password(token):
+    user_id = _verify_admin_password_reset_token(token)
+    if not user_id:
+        flash('Link inválido ou expirado.', 'danger')
+        return redirect(url_for('main.login'))
+
+    user = User.query.get(user_id)
+    if not user:
+        flash('Conta inválida.', 'danger')
+        return redirect(url_for('main.login'))
+
+    if request.method == 'POST':
+        password = (request.form.get('password') or '').strip()
+        confirm_password = (request.form.get('confirm_password') or '').strip()
+        if len(password) < 6:
+            flash('Senha deve ter ao menos 6 caracteres.', 'danger')
+            return render_template('professional_reset_password.html', token=token)
+        if password != confirm_password:
+            flash('As senhas não coincidem.', 'danger')
+            return render_template('professional_reset_password.html', token=token)
+        user.set_password(password)
+        db.session.commit()
+        flash('Senha redefinida com sucesso. Agora faça login.', 'success')
+        return redirect(url_for('main.login'))
+
+    return render_template('professional_reset_password.html', token=token)
 
 
 # ==========================
@@ -1359,10 +1421,106 @@ def dashboard():
     elif status == 'cancelados':
         query = query.filter(Appointment.ativo == False)
     agendamentos = query.order_by(Appointment.appointment_time.asc()).all()
+    for ag in agendamentos:
+        if ag.service:
+            ag.service_price = float(ag.service.price)
+        else:
+            ag.service_price = None
+
+        ag.last_paid_for_service = None
+        if ag.customer and ag.service:
+            last_same = Appointment.query.join(Professional).filter(
+                Appointment.customer_id == ag.customer_id,
+                Appointment.service_id == ag.service_id,
+                Appointment.id != ag.id,
+                Appointment.valor_real != None,
+                Appointment.appointment_time < ag.appointment_time,
+                Professional.admin_id == current_user.id
+            ).order_by(Appointment.appointment_time.desc()).first()
+            if last_same and last_same.valor_real is not None:
+                ag.last_paid_for_service = float(last_same.valor_real)
+
     # Adiciona timedelta ao contexto para o template
     return render_template('dashboard_agenda.html', data=data, professional_id=professional_id,
                            status=status, profissionais=profissionais, servicos=servicos,
                            locations=locations, agendamentos=agendamentos, timedelta=timedelta)
+
+@main.route('/dashboard/clientes', methods=['GET'])
+@login_required
+def dashboard_clients():
+    if current_user.role != 'admin':
+        abort(403)
+
+    search = (request.args.get('search') or '').strip()
+    order_by = request.args.get('order_by', 'last_appointment')
+    order_dir = request.args.get('order_dir', 'desc')
+
+    customers_query = Customer.query.options(
+        joinedload(Customer.appointments).joinedload(Appointment.professional),
+        joinedload(Customer.appointments).joinedload(Appointment.service)
+    ).filter(Customer.admins.any(id=current_user.id))
+
+    if search:
+        customers_query = customers_query.filter(or_(
+            Customer.name.ilike(f'%{search}%'),
+            Customer.phone.ilike(f'%{search}%'),
+            Customer.email.ilike(f'%{search}%')
+        ))
+
+    customers = customers_query.all()
+
+    def build_meta(customer):
+        customer_appointments = [a for a in customer.appointments if a.professional and a.professional.admin_id == current_user.id]
+        last_appt = max(customer_appointments, key=lambda a: a.appointment_time) if customer_appointments else None
+        last_appt_dt = last_appt.appointment_time if last_appt else None
+        return {
+            'customer': customer,
+            'total_appointments': len(customer_appointments),
+            'last_appointment': last_appt,
+            'last_appointment_datetime': last_appt_dt,
+            'last_appointment_date': last_appt_dt.strftime('%d/%m/%Y') if last_appt_dt else None,
+            'last_appointment_time': last_appt_dt.strftime('%H:%M') if last_appt_dt else None,
+            'total_spent': sum(float(a.valor_real or 0) for a in customer_appointments if a.valor_real),
+        }
+
+    customers_meta = [build_meta(c) for c in customers]
+    if order_by == 'name':
+        customers_meta.sort(key=lambda item: item['customer'].name.lower(), reverse=(order_dir == 'desc'))
+    else:
+        customers_meta.sort(key=lambda item: (item['last_appointment_datetime'] or datetime.min), reverse=(order_dir == 'desc'))
+
+    return render_template('dashboard_clients.html', customers_meta=customers_meta, search=search,
+                           order_by=order_by, order_dir=order_dir)
+
+@main.route('/dashboard/clientes/<int:customer_id>', methods=['GET'])
+@login_required
+def dashboard_cliente_history(customer_id):
+    if current_user.role != 'admin':
+        abort(403)
+
+    customer = Customer.query.get_or_404(customer_id)
+    has_access = Appointment.query.join(Professional).filter(
+        Appointment.customer_id == customer.id,
+        Professional.admin_id == current_user.id
+    ).first()
+    if not has_access:
+        abort(404)
+
+    appointments = Appointment.query.options(
+        joinedload(Appointment.professional),
+        joinedload(Appointment.service),
+        joinedload(Appointment.location)
+    ).join(Professional).filter(
+        Appointment.customer_id == customer.id,
+        Professional.admin_id == current_user.id
+    ).order_by(Appointment.appointment_time.desc()).all()
+
+    total_spent = sum(float(a.valor_real or 0) for a in appointments if a.valor_real)
+    last_appointment = appointments[0] if appointments else None
+
+    return render_template('dashboard_customer_history.html', customer=customer,
+                           appointments=appointments, total_spent=total_spent,
+                           last_appointment=last_appointment)
 
 # Rota para cancelar agendamento pelo dashboard (mantida após dashboard)
 @main.route('/dashboard/cancelar_agendamento/<int:agendamento_id>', methods=['POST'])

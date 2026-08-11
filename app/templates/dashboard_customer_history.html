@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="width:100%;max-width:820px;margin:0 auto;padding:16px;">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;">
+    <div>
+      <a href="{{ url_for('main.dashboard_clients') }}" style="color:#232323;text-decoration:none;font-weight:600;">← Voltar aos clientes</a>
+      <h1 style="margin:8px 0 4px;font-size:1.35rem;">Histórico de {{ customer.name }}</h1>
+      <div style="color:#6b7280;font-size:0.94rem;">{{ customer.phone or 'Telefone não informado' }}{% if customer.email %} · {{ customer.email }}{% endif %}</div>
+    </div>
+    <a href="{{ url_for('main.dashboard') }}" style="padding:12px 18px;border-radius:14px;border:1px solid #e3e7eb;background:#fff;color:#232323;text-decoration:none;">Voltar ao painel</a>
+  </div>
+
+  <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:22px;">
+    <div style="padding:18px;border-radius:18px;background:#f8fafc;">
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px;">Total de agendamentos</div>
+      <div style="font-size:1.25rem;font-weight:700;">{{ appointments|length }}</div>
+    </div>
+    <div style="padding:18px;border-radius:18px;background:#f8fafc;">
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px;">Último agendamento</div>
+      <div style="font-size:1.25rem;font-weight:700;">{% if last_appointment %}{{ last_appointment.appointment_time.strftime('%d/%m/%Y %H:%M') }}{% else %}Nenhum{% endif %}</div>
+    </div>
+    <div style="padding:18px;border-radius:18px;background:#f8fafc;">
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px;">Total pago</div>
+      <div style="font-size:1.25rem;font-weight:700;">R$ {{ '%.2f'|format(total_spent) }}</div>
+    </div>
+  </div>
+
+  {% if not appointments %}
+    <div style="padding:26px;border:1px solid #e3e7eb;border-radius:18px;background:#fff;color:#475569;text-align:center;">Ainda não há histórico de serviços para este cliente.</div>
+  {% else %}
+    <div style="overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:18px;">
+      <table style="width:100%;border-collapse:collapse;min-width:720px;">
+        <thead>
+          <tr style="background:#f8fafc;color:#334155;text-align:left;">
+            <th style="padding:14px 12px;font-size:0.88rem;">Data</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Horário</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Serviço</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Profissional</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Local</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Valor pago</th>
+            <th style="padding:14px 12px;font-size:0.88rem;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appt in appointments %}
+            <tr style="border-top:1px solid #eef2f7;">
+              <td style="padding:12px;font-size:0.92rem;">{{ appt.appointment_time.strftime('%d/%m/%Y') }}</td>
+              <td style="padding:12px;font-size:0.92rem;">{{ appt.appointment_time.strftime('%H:%M') }}</td>
+              <td style="padding:12px;font-size:0.92rem;">{{ appt.service.name if appt.service else '—' }}</td>
+              <td style="padding:12px;font-size:0.92rem;">{{ appt.professional.name if appt.professional else '—' }}</td>
+              <td style="padding:12px;font-size:0.92rem;">{{ appt.location.name if appt.location else '—' }}</td>
+              <td style="padding:12px;font-size:0.92rem;">R$ {{ '%.2f'|format(appt.valor_real or 0) }}</td>
+              <td style="padding:12px;font-size:0.92rem;color:{{ 'green' if appt.concluido else ('#ef4444' if not appt.ativo else '#6b7280') }};">{{ 'Concluído' if appt.concluido else ('Cancelado' if not appt.ativo else 'Aberto') }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

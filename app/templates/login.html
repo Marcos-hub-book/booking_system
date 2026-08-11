@@ -32,7 +32,11 @@
             </div>
             {% endif %}
         </form>
-        <div style="font-size:0.8rem;color:#6b7280;text-align:center;">Novo por aqui? <a href="{{ url_for('main.register') }}" style="color:#6366f1;text-decoration:none;font-weight:600;">Criar conta</a></div>
+        <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-size:0.8rem;color:#6b7280;">
+            <a href="{{ url_for('main.professional_forgot_password') }}" style="color:#6366f1;text-decoration:none;font-weight:600;">Esqueci minha senha</a>
+            <span>|</span>
+            <a href="{{ url_for('main.register') }}" style="color:#6366f1;text-decoration:none;font-weight:600;">Criar conta</a>
+        </div>
     </div>
     <!-- Dicas de segurança -->
     <div style="text-align:center;font-size:0.7rem;color:#9ca3af;">Evite acessar de computadores públicos. Use uma senha forte.</div>
