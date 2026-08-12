@@ -303,6 +303,7 @@
       </a>
 
       {% if (current_user.plan or 'free')|lower != 'basic' %}
+      <a href="{{ url_for('main.professionals_list') }}" class="drawer-item">
         <div class="drawer-icon">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
@@ -467,9 +468,6 @@
                 <div class="time">{{ ag.appointment_time.strftime('%H:%M') }} - {{ (ag.appointment_time + timedelta(minutes=dur)).strftime('%H:%M') }}</div>
                 <div>Profissional: {{ ag.professional.name }}</div>
                 {% if ag.location %}<div>Local: {{ ag.location.name }}</div>{% endif %}
-                {% if ag.customer %}
-                  <a href="{{ url_for('main.dashboard_cliente_history', customer_id=ag.customer.id) }}" onclick="event.stopPropagation();" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#2563eb;color:#fff;border-radius:8px;padding:6px 10px;font-size:0.82rem;text-decoration:none;">Ver histórico</a>
-                {% endif %}
               </div>
               <div class="actions">
                 {% if ag.ativo %}
@@ -477,9 +475,7 @@
                     <span style="background:#10b981;color:#fff;border-radius:999px;padding:5px 10px;font-size:0.8rem;font-weight:600;">Concluído</span>
                   {% else %}
                     <button type="button" class="btn-concluir" data-id="{{ ag.id }}" data-price="{{ '%.2f'|format(ag.service_price|default(0)) }}" data-service-name="{{ ag.service.name if ag.service else '' }}" data-last-paid="{{ '%.2f'|format(ag.last_paid_for_service) if ag.last_paid_for_service is not none else '' }}" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-size:0.85rem;cursor:pointer;" onclick="event.stopPropagation();">Concluir</button>
-                    <form method="post" action="{{ url_for('main.dashboard_cancelar_agendamento', agendamento_id=ag.id) }}" style="display:inline;" onsubmit="return confirm('Confirmar cancelamento deste agendamento?');">
-                      <button type="submit" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:4px 8px;font-size:0.85rem;" onclick="event.stopPropagation();">Cancelar</button>
-                    </form>
+                    <button type="button" class="btn-cancel" data-id="{{ ag.id }}" data-customer-phone="{{ ag.customer.phone if ag.customer else '' }}" data-customer-name="{{ ag.customer.name if ag.customer else '' }}" data-professional-name="{{ ag.professional.name }}" data-service-name="{{ ag.service.name if ag.service else '' }}" data-appointment-time="{{ ag.appointment_time.strftime('%d/%m %H:%M') }}" style="background:#fff;color:#d32f2f;border:1px solid #f3c1c1;border-radius:8px;padding:4px 8px;font-size:0.85rem;cursor:pointer;" onclick="event.stopPropagation();">Cancelar</button>
                   {% endif %}
                 {% else %}
                   <span style="color:#ef4444;font-weight:500;">Cancelado</span>
@@ -605,6 +601,30 @@
         <button type="submit" style="background:#111827;color:#fff;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal: Cancelar Agendamento -->
+<div id="modal-cancel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:97;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:22px;width:92%;max-width:460px;box-shadow:0 24px 64px rgba(15,23,42,0.16);">
+    <div id="cancel-step-1">
+      <h3 style="margin:0 0 10px;font-size:1.2rem;color:#111827;">Cancelar agendamento</h3>
+      <p style="margin:0 0 16px;color:#374151;">Tem certeza que deseja cancelar este agendamento?</p>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" id="cancel-close" style="background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:12px 16px;cursor:pointer;color:#111827;">Voltar</button>
+        <button type="button" id="cancel-confirm" style="background:#d32f2f;color:#fff;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;">Sim, cancelar</button>
+      </div>
+    </div>
+    <div id="cancel-step-2" style="display:none;">
+      <h3 style="margin:0 0 10px;font-size:1.2rem;color:#111827;">Avisar cliente via WhatsApp?</h3>
+      <p id="cancel-whatsapp-note" style="min-height:56px;margin:0;color:#374151;font-size:0.95rem;"></p>
+      <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <button type="button" id="cancel-back" style="background:#fff;border:1px solid #e3e7eb;border-radius:12px;padding:12px 16px;cursor:pointer;color:#111827;">Voltar</button>
+        <button type="button" id="cancel-finalize" style="background:#111827;color:#fff;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;">Finalizar</button>
+        <button type="button" id="cancel-send-whatsapp" style="background:#25D366;color:#fff;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;">Enviar</button>
+      </div>
+    </div>
+    <form id="cancel-form" method="post" action="" style="display:none;"></form>
   </div>
 </div>
 
@@ -816,6 +836,105 @@
     btnAddAppointment && btnAddAppointment.addEventListener('click', ()=>{ dial.style.display='none'; modalAppt.style.display='flex'; updateServices(); updateTimes(); });
     closeBlock && closeBlock.addEventListener('click', ()=>{ modalBlock.style.display='none'; });
     closeAppt && closeAppt.addEventListener('click', ()=>{ modalAppt.style.display='none'; });
+
+    const modalCancel = document.getElementById('modal-cancel');
+    const cancelForm = document.getElementById('cancel-form');
+    const cancelStep1 = document.getElementById('cancel-step-1');
+    const cancelStep2 = document.getElementById('cancel-step-2');
+    const cancelWhatsappNote = document.getElementById('cancel-whatsapp-note');
+    const cancelClose = document.getElementById('cancel-close');
+    const cancelBack = document.getElementById('cancel-back');
+    const cancelConfirm = document.getElementById('cancel-confirm');
+    const cancelFinalize = document.getElementById('cancel-finalize');
+    const cancelSendWhatsapp = document.getElementById('cancel-send-whatsapp');
+
+    let currentCancelAction = '';
+    let currentWhatsappUrl = '';
+    let currentHasPhone = false;
+
+    function sanitizePhone(phone) {
+      if (!phone) return '';
+      return phone.replace(/[^+0-9]/g, '');
+    }
+
+    function openCancelModal(actionUrl, customerPhone, customerName, professionalName, serviceName, appointmentTime) {
+      if (!modalCancel || !cancelForm || !cancelStep1 || !cancelStep2 || !cancelWhatsappNote) return;
+      currentCancelAction = actionUrl;
+      currentWhatsappUrl = '';
+      const phone = sanitizePhone(customerPhone);
+      currentHasPhone = !!phone;
+      cancelForm.action = actionUrl;
+      cancelStep1.style.display = 'block';
+      cancelStep2.style.display = 'none';
+      cancelWhatsappNote.textContent = '';
+      if (phone) {
+        const salonUrl = 'poraqui.online/{{ current_user.username }}';
+        const message = `Olá ${customerName}, passando pra avisar que seu agendamento do ${serviceName}, em ${appointmentTime}, com ${professionalName}, precisou ser cancelado. Você pode marcar um novo horário pelo link ${salonUrl}`;
+        currentWhatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      }
+      modalCancel.style.display = 'flex';
+    }
+
+    function showCancelStep2() {
+      if (!cancelStep1 || !cancelStep2 || !cancelWhatsappNote || !cancelFinalize || !cancelSendWhatsapp) return;
+      cancelStep1.style.display = 'none';
+      cancelStep2.style.display = 'block';
+      if (currentHasPhone) {
+        cancelWhatsappNote.textContent = `Cliente com telefone cadastrado. Clique em Enviar para abrir o WhatsApp com a mensagem pronta. Depois finalize o cancelamento.`;
+        cancelSendWhatsapp.disabled = false;
+        cancelSendWhatsapp.style.opacity = '1';
+      } else {
+        cancelWhatsappNote.textContent = `Cliente sem telefone cadastrado. O envio via WhatsApp não está disponível, mas você pode finalizar o cancelamento.`;
+        cancelSendWhatsapp.disabled = true;
+        cancelSendWhatsapp.style.opacity = '0.6';
+      }
+    }
+
+    function closeCancelModal() {
+      if (!modalCancel || !cancelStep1 || !cancelStep2) return;
+      cancelStep1.style.display = 'block';
+      cancelStep2.style.display = 'none';
+      modalCancel.style.display = 'none';
+    }
+
+    modalCancel && modalCancel.addEventListener('click', (e) => {
+      if (e.target === modalCancel) closeCancelModal();
+    });
+
+    document.querySelectorAll('.btn-cancel').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const customerPhone = btn.dataset.customerPhone || '';
+        const customerName = btn.dataset.customerName || '';
+        const professionalName = btn.dataset.professionalName || '';
+        const serviceName = btn.dataset.serviceName || '';
+        const appointmentTime = btn.dataset.appointmentTime || '';
+        if (!id) return;
+        const actionUrl = `/dashboard/cancelar_agendamento/${id}`;
+        openCancelModal(actionUrl, customerPhone, customerName, professionalName, serviceName, appointmentTime);
+      });
+    });
+
+    cancelClose && cancelClose.addEventListener('click', closeCancelModal);
+    cancelBack && cancelBack.addEventListener('click', () => {
+      if (cancelStep1 && cancelStep2) {
+        cancelStep1.style.display = 'block';
+        cancelStep2.style.display = 'none';
+      }
+    });
+    cancelConfirm && cancelConfirm.addEventListener('click', () => {
+      showCancelStep2();
+    });
+    cancelFinalize && cancelFinalize.addEventListener('click', () => {
+      if (cancelForm) cancelForm.submit();
+    });
+    cancelSendWhatsapp && cancelSendWhatsapp.addEventListener('click', () => {
+      if (currentWhatsappUrl) {
+        window.open(currentWhatsappUrl, '_blank');
+      }
+      if (cancelForm) cancelForm.submit();
+    });
 
     async function updateTimes(){
       const prof = document.getElementById('ap-prof').value;
