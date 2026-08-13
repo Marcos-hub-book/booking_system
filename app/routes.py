@@ -1673,8 +1673,21 @@ def dashboard_available_times():
     except Exception:
         return jsonify({'ok': False, 'error': 'invalid_date'}), 400
     duration = service.duration
-    # Gera slots de 15 em 15 minutos entre o horário de início e fim do profissional/local
+    # Gera slots com passo igual à duração do menor serviço do profissional
+    # (ex: se menor serviço for 30min, os slots serão de 30 em 30)
     weekday = date.weekday()
+    # Determina o passo dos slots (menor duração entre os serviços vinculados ao profissional)
+    try:
+        min_service_dur = db.session.query(func.min(Service.duration)) \
+            .join(service_professional, Service.id == service_professional.c.service_id) \
+            .filter(service_professional.c.professional_id == professional.id,
+                    Service.admin_id == current_user.id).scalar()
+    except Exception:
+        min_service_dur = None
+    slot_step = int(min_service_dur) if min_service_dur else int(duration)
+    if slot_step <= 0:
+        slot_step = int(duration)
+    # Gera slots entre o horário de início e fim do profissional/local
     # Busca janelas do profissional
     schedules = ProfessionalSchedule.query.filter_by(professional_id=professional.id, weekday=weekday).all()
     # Se plano BASIC e location_id, busca janelas do local
@@ -1708,7 +1721,7 @@ def dashboard_available_times():
             # Verifica se slot está disponível
             if not in_break and _is_slot_available(professional, current, duration, current_user, location_id):
                 slots.append(current.strftime('%H:%M'))
-            current += timedelta(minutes=15)
+            current += timedelta(minutes=slot_step)
     return jsonify({'ok': True, 'slots': slots})
 
 
