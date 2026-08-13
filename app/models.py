@@ -99,6 +99,9 @@ class LocationSchedule(db.Model):
     end_time = db.Column(db.Time, nullable=False)
     break_start = db.Column(db.Time, nullable=True)
     break_end = db.Column(db.Time, nullable=True)
+    # Se True, esta entrada é um evento com data única (usar `event_date`)
+    is_event = db.Column(db.Boolean, default=False)
+    event_date = db.Column(db.Date, nullable=True)
 
     location = db.relationship('Location', backref='schedules')
 

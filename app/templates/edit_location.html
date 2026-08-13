@@ -52,9 +52,13 @@
             <span class="sch-dayname">{{ dias[i] }}</span>
             <span class="sch-summary" id="sum-{{ i }}">
               {% if h %}
-                {{ h.start_time.strftime('%H:%M') }} – {{ h.end_time.strftime('%H:%M') }}
-                {% if h.break_start and h.break_end %}
-                  · Pausa {{ h.break_start.strftime('%H:%M') }}–{{ h.break_end.strftime('%H:%M') }}
+                {% if h.is_event and h.event_date %}
+                  Evento em {{ h.event_date.strftime('%d/%m/%Y') }} · {{ h.start_time.strftime('%H:%M') }} – {{ h.end_time.strftime('%H:%M') }}
+                {% else %}
+                  {{ h.start_time.strftime('%H:%M') }} – {{ h.end_time.strftime('%H:%M') }}
+                  {% if h.break_start and h.break_end %}
+                    · Pausa {{ h.break_start.strftime('%H:%M') }}–{{ h.break_end.strftime('%H:%M') }}
+                  {% endif %}
                 {% endif %}
               {% else %}
                 Fechado
@@ -63,6 +67,12 @@
           </div>
           <div class="sch-body">
             <div class="sch-section-label">Horário de atendimento</div>
+            <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;">
+              <label style="font-size:0.85rem;color:#374151;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" name="is_event_{{ i }}" id="ie-{{ i }}" {% if h and h.is_event %}checked{% endif %} onchange="onEventToggle({{ i }})"> Evento com data única
+              </label>
+              <input type="date" name="event_date_{{ i }}" id="ed-{{ i }}" value="{% if h and h.event_date %}{{ h.event_date.isoformat() }}{% endif %}" style="padding:6px;border:1px solid #e3e7eb;border-radius:8px;display:{% if h and h.is_event %}inline-block{% else %}none{% endif %};">
+            </div>
             <div class="sch-grid">
               <div class="sch-field">
                 <label>Início</label>
@@ -141,11 +151,29 @@
     const e  = document.getElementById('e-'+i).value;
     const bs = document.getElementById('bs-'+i).value;
     const be = document.getElementById('be-'+i).value;
+    const ie = document.getElementById('ie-'+i);
+    const ed = document.getElementById('ed-'+i);
     const sum = document.getElementById('sum-'+i);
     if(!chk.checked){ sum.textContent = 'Fechado'; return; }
-    let txt = (s && e) ? s+' – '+e : 'Horário não definido';
+    let txt = '';
+    if(ie && ie.checked){
+      const d = ed && ed.value ? new Date(ed.value) : null;
+      const dtxt = d ? d.toLocaleDateString('pt-BR') + ' · ' : '';
+      txt = dtxt + ((s && e) ? s+' – '+e : 'Horário não definido');
+    } else {
+      txt = (s && e) ? s+' – '+e : 'Horário não definido';
+    }
     if(bs && be) txt += ' · Pausa '+bs+'–'+be;
     sum.textContent = txt;
+  }
+
+  function onEventToggle(i){
+    const ie = document.getElementById('ie-'+i);
+    const ed = document.getElementById('ed-'+i);
+    if(ie && ed){
+      ed.style.display = ie.checked ? 'inline-block' : 'none';
+    }
+    updateSummary(i);
   }
 </script>
 {% endblock %}

@@ -4,7 +4,7 @@ from . import db, login_manager
 from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location, Notification
 from .models import Location
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from sqlalchemy.exc import IntegrityError
 from .forms import LoginForm, RegistrationForm, AppointmentForm
 from sqlalchemy.orm import joinedload
@@ -1693,7 +1693,12 @@ def dashboard_available_times():
     # Se plano BASIC e location_id, busca janelas do local
     loc_schedules = []
     if is_basic(current_user) and location_id:
-        loc_schedules = LocationSchedule.query.filter_by(location_id=location_id, weekday=weekday).all()
+        # inclui janelas regulares do weekday e também eventos com data única para a data selecionada
+        loc_schedules = LocationSchedule.query.filter(
+            LocationSchedule.location_id == location_id,
+            or_(LocationSchedule.weekday == weekday,
+                and_(LocationSchedule.is_event == True, LocationSchedule.event_date == date))
+        ).all()
     # Se profissional sem janela, usar do Local em BASIC
     if not schedules and loc_schedules:
         class S: pass
@@ -1862,46 +1867,81 @@ def edit_location(location_id):
             flash('Nome do local é obrigatório.', 'danger')
             return redirect(request.url)
         loc.name = name
-        workdays = set(int(x) for x in request.form.getlist('workdays'))
-        existing = {
-            h.weekday: h
-            for h in LocationSchedule.query.filter_by(location_id=loc.id).all()
-         }
-        for i in workdays:
+        # Processa todos os 7 índices; aceita tanto dias regulares quanto eventos (is_event + event_date)
+        existing = { h.weekday: h for h in LocationSchedule.query.filter_by(location_id=loc.id).all() }
+        new_weekdays = set()
+        for i in range(7):
+            # Valores do formulário
+            checked = request.form.getlist('workdays')
+            is_workday = str(i) in checked
             start_val = (request.form.get(f'start_{i}') or '').strip()
             end_val = (request.form.get(f'end_{i}') or '').strip()
             bstart_val = (request.form.get(f'break_start_{i}') or '').strip()
             bend_val = (request.form.get(f'break_end_{i}') or '').strip()
+            is_event_checked = (request.form.get(f'is_event_{i}') or '') == 'on'
+            event_date_val = (request.form.get(f'event_date_{i}') or '').strip()
 
-            if not (start_val and end_val):
-                continue
+            # Se marcado como evento único, precisamos ter event_date e horários
+            if is_event_checked and event_date_val and start_val and end_val:
+                try:
+                    st = datetime.strptime(start_val, '%H:%M').time()
+                    en = datetime.strptime(end_val, '%H:%M').time()
+                    bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                    be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+                    ed = datetime.strptime(event_date_val, '%Y-%m-%d').date()
+                except Exception:
+                    continue
+                new_weekdays.add(i)
+                if i in existing:
+                    existing[i].start_time = st
+                    existing[i].end_time = en
+                    existing[i].break_start = bs
+                    existing[i].break_end = be
+                    existing[i].is_event = True
+                    existing[i].event_date = ed
+                else:
+                    db.session.add(LocationSchedule(
+                        location_id=loc.id,
+                        weekday=i,
+                        start_time=st,
+                        end_time=en,
+                        break_start=bs,
+                        break_end=be,
+                        is_event=True,
+                        event_date=ed
+                    ))
+            # Se dia de semana normal
+            elif is_workday and start_val and end_val:
+                try:
+                    st = datetime.strptime(start_val, '%H:%M').time()
+                    en = datetime.strptime(end_val, '%H:%M').time()
+                    bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
+                    be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
+                except Exception:
+                    continue
+                new_weekdays.add(i)
+                if i in existing:
+                    existing[i].start_time = st
+                    existing[i].end_time = en
+                    existing[i].break_start = bs
+                    existing[i].break_end = be
+                    existing[i].is_event = False
+                    existing[i].event_date = None
+                else:
+                    db.session.add(LocationSchedule(
+                        location_id=loc.id,
+                        weekday=i,
+                        start_time=st,
+                        end_time=en,
+                        break_start=bs,
+                        break_end=be,
+                        is_event=False,
+                        event_date=None
+                    ))
 
-            try:
-                st = datetime.strptime(start_val, '%H:%M').time()
-                en = datetime.strptime(end_val, '%H:%M').time()
-                bs = datetime.strptime(bstart_val, '%H:%M').time() if bstart_val else None
-                be = datetime.strptime(bend_val, '%H:%M').time() if bend_val else None
-            except Exception:
-                continue
-
-            if i in existing:
-                # 👉 ATUALIZA (isso que faltava)
-                existing[i].start_time = st
-                existing[i].end_time = en
-                existing[i].break_start = bs
-                existing[i].break_end = be
-            else:
-            # 👉 CRIA
-                db.session.add(LocationSchedule(
-                    location_id=loc.id,
-                    weekday=i,
-                    start_time=st,
-                    end_time=en,
-                    break_start=bs,
-                    break_end=be
-                ))
+        # Remove horários existentes que não foram resubmetidos
         for i, sched in existing.items():
-            if i not in workdays:
+            if i not in new_weekdays:
                 db.session.delete(sched)
         db.session.commit()
         flash('Local atualizado com sucesso.', 'success')
