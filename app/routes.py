@@ -1422,12 +1422,12 @@ def dashboard():
         query = query.filter(Appointment.ativo == False)
     agendamentos = query.order_by(Appointment.appointment_time.asc()).all()
     for ag in agendamentos:
-        if ag.service:
+        if ag.service and ag.service.price is not None:
             ag.service_price = float(ag.service.price)
         else:
-            ag.service_price = None
+            ag.service_price = 0.0
 
-        ag.last_paid_for_service = None
+        ag.last_paid_for_service = 0.0
         if ag.customer and ag.service:
             last_same = Appointment.query.join(Professional).filter(
                 Appointment.customer_id == ag.customer_id,
