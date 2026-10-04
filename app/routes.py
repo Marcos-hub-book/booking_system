@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
 from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location, Notification
 from .models import Location
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func, or_, and_
 from sqlalchemy.exc import IntegrityError
 from .forms import LoginForm, RegistrationForm, AppointmentForm
@@ -779,10 +779,13 @@ def professional_reset_password(token):
 @main.route('/<salao_slug>/entrar', methods=['GET'])
 def login_phone_screen(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
-    # If already authenticated as customer, go straight to options
+    next_url = request.args.get('next') or url_for('main.cliente_opcoes', salao_slug=salao_slug)
+    if not next_url.startswith('/'):
+        next_url = url_for('main.cliente_opcoes', salao_slug=salao_slug)
+    # If already authenticated as customer, go straight to the requested destination
     if getattr(g, 'customer_id', None):
-        return redirect(url_for('main.cliente_opcoes', salao_slug=salao_slug))
-    return render_template('cliente_login_phone.html', salao_slug=salao_slug, admin=admin)
+        return redirect(next_url)
+    return render_template('cliente_login_phone.html', salao_slug=salao_slug, admin=admin, next_url=next_url)
 
 
 def _normalize_phone(raw: str) -> str | None:
@@ -915,6 +918,9 @@ def api_auth_login():
         return jsonify({'ok': False, 'error': 'salon_not_found'}), 404
     identifier = (data.get('identifier') or '').strip()
     password = (data.get('password') or '').strip()
+    next_url = (data.get('next') or '').strip()
+    if not next_url.startswith('/'):
+        next_url = url_for('main.cliente_opcoes', salao_slug=salao_slug)
     if not (identifier and password):
         return jsonify({'ok': False, 'error': 'missing_fields'}), 400
     customer = _lookup_customer_by_identifier(identifier)
@@ -924,7 +930,7 @@ def api_auth_login():
         customer.admins.append(admin)
         db.session.commit()
     jwt_token = _create_customer_jwt(customer.id, customer.name, admin.id)
-    resp = jsonify({'ok': True})
+    resp = jsonify({'ok': True, 'next': next_url})
     max_age = 60 * 60 * 24 * 180
     resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
     return resp
@@ -944,6 +950,9 @@ def api_auth_register():
     last_name = (data.get('lastName') or '').strip()
     email = (data.get('email') or '').strip().lower() or (identifier.strip().lower() if _is_email(identifier) else None)
     password = (data.get('password') or '').strip()
+    next_url = (data.get('next') or '').strip()
+    if not next_url.startswith('/'):
+        next_url = url_for('main.cliente_opcoes', salao_slug=salao_slug)
     if not (first_name and email and password and phone):
         return jsonify({'ok': False, 'error': 'missing_fields'}), 400
     if not _is_email(email):
@@ -976,7 +985,7 @@ def api_auth_register():
         customer.admins.append(admin)
         db.session.commit()
     jwt_token = _create_customer_jwt(customer.id, customer.name, admin.id)
-    resp = jsonify({'ok': True})
+    resp = jsonify({'ok': True, 'next': next_url})
     max_age = 60 * 60 * 24 * 180
     resp.set_cookie('customer_jwt', jwt_token, max_age=max_age, httponly=True, secure=False, samesite='Lax', path='/')
     return resp
@@ -2424,7 +2433,7 @@ def cliente_periodo(salao_slug):
     return render_template('cliente_periodo.html', salao_slug=salao_slug, back_url=back_url)
 
 
-def _period_range(period: str):
+def _period_range(period: str | None):
     # retorna (start_hour, end_hour) inclusivo de início, exclusivo de fim
     if period == 'manha':
         return (8, 12)
@@ -2432,7 +2441,29 @@ def _period_range(period: str):
         return (12, 18)
     if period == 'noite':
         return (18, 22)
+    if period == 'dia':
+        return (8, 22)
     return (8, 22)
+
+
+def _booking_combined_date_time_enabled() -> bool:
+    """Feature flag para experimentar a UX de calendário + horários numa mesma tela.
+    Ative localmente com: BOOKING_COMBINED_DATE_TIME=true
+    """
+    value = os.environ.get('BOOKING_COMBINED_DATE_TIME', 'false')
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _customer_day_slots(admin: User, service: Service, prof: Professional, location_id: int | None, selected_date: date, period: str | None):
+    start_h, end_h = _period_range(period or 'manha')
+    slots = []
+    cur = datetime.combine(selected_date, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
+    end_dt = datetime.combine(selected_date, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
+    while cur + timedelta(minutes=service.duration) <= end_dt:
+        if _is_slot_available(prof, cur, service.duration, admin, location_id):
+            slots.append(cur.strftime('%H:%M'))
+        cur += timedelta(minutes=15)
+    return slots
 
 
 @main.route('/<salao_slug>/data', methods=['GET', 'POST'])
@@ -2450,12 +2481,10 @@ def cliente_data(salao_slug):
     service = Service.query.filter_by(id=service_id, admin_id=admin.id).first_or_404()
     prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first_or_404()
     start_h, end_h = _period_range(period)
-    # próximos 14 dias com pelo menos um slot disponível
-    days = []
     today = datetime.today().date()
-    for i in range(0, 14):
+    days = []
+    for i in range(0, 30):
         d = today + timedelta(days=i)
-        # procura se existe ao menos 1 slot dentro do período
         cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
         end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
         ok = False
@@ -2466,16 +2495,42 @@ def cliente_data(salao_slug):
             cur += timedelta(minutes=15)
         if ok:
             days.append(d)
+
+    selected_date = None
     if request.method == 'POST':
         date_str = request.form.get('date')
         try:
-            sel = datetime.strptime(date_str, '%Y-%m-%d').date()
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
         except Exception:
-            sel = None
-        if sel:
-            return redirect(url_for('main.cliente_horario', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period, date=sel.strftime('%Y-%m-%d')))
+            selected_date = None
+        if selected_date:
+            if _booking_combined_date_time_enabled():
+                return redirect(url_for('main.cliente_data', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period, date=selected_date.strftime('%Y-%m-%d')))
+            return redirect(url_for('main.cliente_horario', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id, period=period, date=selected_date.strftime('%Y-%m-%d')))
+    if request.args.get('date'):
+        try:
+            selected_date = datetime.strptime(request.args.get('date'), '%Y-%m-%d').date()
+        except Exception:
+            selected_date = None
+
+    slots = []
+    if selected_date and _booking_combined_date_time_enabled():
+        slots = _customer_day_slots(admin, service, prof, location_id, selected_date, period)
+
     back_url = url_for('main.cliente_periodo', salao_slug=salao_slug, service_id=service_id, professional_id=professional_id, location_id=location_id)
-    return render_template('cliente_data.html', days=days, salao_slug=salao_slug, back_url=back_url)
+    return render_template(
+        'cliente_data.html',
+        days=days,
+        slots=slots,
+        selected_date=selected_date,
+        salao_slug=salao_slug,
+        service_id=service_id,
+        professional_id=professional_id,
+        location_id=location_id,
+        period=period,
+        back_url=back_url,
+        combined_booking_ux=_booking_combined_date_time_enabled(),
+    )
 
 
 @main.route('/<salao_slug>/horario', methods=['GET', 'POST'])
@@ -2611,12 +2666,7 @@ def cliente_agendamento_wizard(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not _public_link_allowed(admin):
         abort(404)
-    redir = _require_customer_auth(salao_slug)
-    if redir:
-        return redir
-    has_locations = Location.query.filter_by(admin_id=admin.id).count() > 0
-    locations = Location.query.filter_by(admin_id=admin.id).all() if has_locations else []
-    return render_template('cliente_agendamento_wizard.html', salao_slug=salao_slug, has_locations=has_locations, locations=locations)
+    return redirect(url_for('main.salao_home', salao_slug=salao_slug))
 
 
 # ==========================
@@ -2663,16 +2713,16 @@ def api_get_dates(salao_slug):
     professional_id = request.args.get('professional_id', type=int)
     location_id = request.args.get('location_id', type=int)
     period = request.args.get('period')
-    
+
     service = Service.query.filter_by(id=service_id, admin_id=admin.id).first()
     prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first()
     if not service or not prof:
         return jsonify({'dates': []})
-    
-    start_h, end_h = _period_range(period)
+
+    start_h, end_h = _period_range(period or 'dia')
     days = []
     today = datetime.today().date()
-    for i in range(0, 14):
+    for i in range(0, 30):
         d = today + timedelta(days=i)
         cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
         end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())
@@ -2683,7 +2733,13 @@ def api_get_dates(salao_slug):
                 break
             cur += timedelta(minutes=15)
         if ok:
-            days.append({'value': d.strftime('%Y-%m-%d'), 'formatted': f"{dias[d.weekday()]}, {d.day:02d} de {meses[d.month-1]}"})
+            days.append({
+                'value': d.strftime('%Y-%m-%d'),
+                'formatted': f"{dias[d.weekday()]}, {d.day:02d} de {meses[d.month-1]}",
+                'label': dias[d.weekday()].capitalize(),
+                'day': str(d.day).zfill(2),
+                'month': meses[d.month-1].capitalize(),
+            })
     return jsonify({'dates': days})
 
 
@@ -2697,12 +2753,12 @@ def api_get_times(salao_slug):
     location_id = request.args.get('location_id', type=int)
     period = request.args.get('period')
     date_str = request.args.get('date')
-    
+
     service = Service.query.filter_by(id=service_id, admin_id=admin.id).first()
     prof = Professional.query.filter_by(id=professional_id, admin_id=admin.id).first()
     if not service or not prof:
         return jsonify({'times': []})
-    
+
     try:
         d = datetime.strptime(date_str, '%Y-%m-%d').date()
     except Exception:
@@ -2711,7 +2767,7 @@ def api_get_times(salao_slug):
     tz = pytz.timezone('America/Sao_Paulo')
     now = datetime.now(tz).replace(tzinfo=None)
     now_with_buffer = now + timedelta(minutes=BUFFER_MINUTES)
-    start_h, end_h = _period_range(period)
+    start_h, end_h = _period_range(period or 'dia')
     slots = []
     cur = datetime.combine(d, datetime.strptime(f"{start_h:02d}:00", '%H:%M').time())
     end_dt = datetime.combine(d, datetime.strptime(f"{end_h:02d}:00", '%H:%M').time())

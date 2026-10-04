@@ -82,10 +82,7 @@
 
 <script>
   window.SALAO_SLUG = "{{ salao_slug }}";
-  // No Firebase.
-  // O comportamento continua igual; IDs foram mantidos para o auth_password.js.
-  // Apenas estilos e layout foram alinhados ao wizard.
-  // Mensagens de erro usarão o #msg com estilo de alerta.
+  window.NEXT_URL = {{ (next_url or url_for('main.cliente_opcoes', salao_slug=salao_slug)) | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/auth_password.js') }}" defer></script>
 {% endblock %}

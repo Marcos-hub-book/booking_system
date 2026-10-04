@@ -5,41 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{{ admin.company_name }}</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #211C17;
+      --paper: #F8F3EC;
+      --sheet: #FDFBF8;
+      --accent: #96602E;
+      --accent-soft: #EADFC9;
+      --line: rgba(33,28,23,0.09);
+      --muted: rgba(33,28,23,0.56);
+      --muted-2: rgba(33,28,23,0.36);
+    }
 
     html, body {
       width: 100%;
       min-height: 100%;
-      background: #f5f2ee;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--ink);
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* ─── Page shell ─── */
     .profile-page {
       width: 100%;
       max-width: 430px;
       margin: 0 auto;
       min-height: 100vh;
-      background: #f5f2ee;
+      background: var(--paper);
       display: flex;
       flex-direction: column;
-      align-items: center;
     }
 
     /* ─── Cover ─── */
-    .hero-section {
-      width: 100%;
-      position: relative;
-    }
-
     .hero-cover {
       width: 100%;
-      height: 220px;
+      height: 168px;
+      min-height: 168px;
       overflow: hidden;
-      background: #e8e3dc;
+      background: var(--ink);
       position: relative;
     }
 
@@ -48,50 +57,60 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      opacity: 0.92;
     }
 
     .cover-placeholder {
       position: absolute;
       inset: 0;
       background:
-        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.04) 39px, rgba(0,0,0,0.04) 40px),
-        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.04) 39px, rgba(0,0,0,0.04) 40px),
-        #ede8e1;
+        radial-gradient(120% 90% at 15% 0%, rgba(255,255,255,0.10), transparent 55%),
+        linear-gradient(135deg, #2A231C 0%, #1B1712 100%);
     }
 
     .hero-cover::after {
       content: '';
       position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 100px;
-      background: linear-gradient(to bottom, transparent, #f5f2ee);
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 35%, rgba(20,16,12,0.55) 100%);
       pointer-events: none;
     }
 
-    /* ─── Avatar ─── */
-    .avatar-wrapper {
-      position: absolute;
-      bottom: -52px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
+    /* ─── Sheet (overlaps the cover) ─── */
+    .sheet {
+      position: relative;
+      margin-top: -30px;
+      background: var(--sheet);
+      border-radius: 26px 26px 0 0;
+      flex: 1;
+      padding: 22px 22px 0;
+      box-shadow: 0 -8px 24px rgba(20,16,12,0.06);
     }
 
-    .avatar-ring {
-      width: 130px;
-      height: 130px;
-      border-radius: 50%;
-      background: #f5f2ee;
+    /* ─── Identity row ─── */
+    .identity-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .avatar-frame {
+      width: 66px;
+      height: 66px;
+      min-width: 66px;
+      border-radius: 19px;
+      background: var(--paper);
       padding: 3px;
+      margin-top: -40px;
+      box-shadow: 0 3px 10px rgba(20,16,12,0.12);
     }
 
     .avatar-inner {
       width: 100%;
       height: 100%;
-      border-radius: 50%;
+      border-radius: 16px;
       overflow: hidden;
-      background: #ddd8d0;
-      border: 1px solid rgba(0,0,0,0.08);
+      background: var(--accent-soft);
     }
 
     .avatar-inner img {
@@ -107,252 +126,853 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.6rem;
-      letter-spacing: 0.12em;
-      color: rgba(0,0,0,0.2);
-      text-transform: uppercase;
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem;
+      color: var(--accent);
     }
 
-    /* ─── Info ─── */
-    .profile-info {
-      margin-top: 66px;
-      text-align: center;
-      padding: 0 28px;
-      width: 100%;
-    }
-
-    .profile-info h1 {
-      font-size: 1.35rem;
-      font-weight: 600;
-      color: #1a1714;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-    }
-
-    .profile-info .bio {
-      font-size: 0.83rem;
-      color: rgba(0,0,0,0.42);
-      font-weight: 400;
-      line-height: 1.55;
-      margin-top: 8px;
-    }
-
-    /* ─── Links ─── */
-    .links-section {
-      width: 100%;
-      padding: 28px 16px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .link-btn {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      border-radius: 12px;
-      text-decoration: none;
-      overflow: hidden;
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-
-    .link-btn:active { transform: scale(0.985); opacity: 0.85; }
-
-    /* Primário */
-    .link-btn.primary {
-      background: #1a1714;
-      min-height: 60px;
-    }
-
-    .link-btn.primary .btn-icon {
-      width: 58px;
-      min-width: 58px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      align-self: stretch;
-      border-right: 1px solid rgba(255,255,255,0.07);
-    }
-
-    .link-btn.primary .btn-icon svg {
-      width: 17px;
-      height: 17px;
-      color: rgba(255,255,255,0.65);
-    }
-
-    .link-btn.primary .btn-label {
+    .identity-text {
       flex: 1;
-      padding: 0 16px;
-      font-size: 0.82rem;
+      padding-top: 4px;
+      min-width: 0;
+    }
+
+    .identity-text h1 {
+      font-family: 'Fraunces', serif;
       font-weight: 500;
-      color: #f5f2ee;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      font-size: 1.5rem;
+      line-height: 1.12;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      word-break: break-word;
     }
 
-    .link-btn.primary .btn-arrow {
-      width: 40px;
+    .profession-chip {
+      display: inline-block;
+      margin-top: 9px;
+      padding: 4px 11px;
+      border-radius: 100px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .greeting {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .greeting strong { color: var(--ink); font-weight: 600; }
+
+    /* ─── Primary CTA ─── */
+    .cta-primary {
+      margin-top: 22px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-      color: rgba(255,255,255,0.25);
+      gap: 12px;
+      width: 100%;
+      padding: 17px 18px;
+      border-radius: 16px;
+      background: var(--ink);
+      text-decoration: none;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
 
-    /* Secundário */
-    .link-btn.secondary {
-      background: #fff;
-      border: 1px solid rgba(0,0,0,0.07);
-      min-height: 54px;
+    .cta-primary:active { transform: scale(0.985); opacity: 0.9; }
+
+    .cta-primary svg {
+      width: 19px;
+      height: 19px;
+      color: var(--accent-soft);
+      flex-shrink: 0;
     }
 
-    .link-btn.secondary .btn-icon {
-      width: 52px;
-      min-width: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      align-self: stretch;
-    }
-
-    .link-btn.secondary .btn-icon svg {
-      width: 15px;
-      height: 15px;
-      color: rgba(0,0,0,0.22);
-    }
-
-    .link-btn.secondary .btn-label {
+    .cta-primary .cta-text {
       flex: 1;
-      padding: 12px 4px 12px 0;
-      font-size: 0.82rem;
-      font-weight: 400;
-      color: rgba(0,0,0,0.65);
+    }
+
+    .cta-primary .cta-title {
+      display: block;
+      font-size: 0.94rem;
+      font-weight: 600;
+      color: var(--paper);
+    }
+
+    .cta-primary .cta-sub {
+      display: block;
+      margin-top: 1px;
+      font-size: 0.74rem;
+      color: rgba(248,243,236,0.5);
+    }
+
+    .cta-primary .cta-arrow {
+      font-size: 1.15rem;
+      color: rgba(248,243,236,0.4);
+    }
+
+    /* ─── Links group ─── */
+    .links-group {
+      margin-top: 28px;
+    }
+
+    .links-group .group-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted-2);
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    .links-list {
+      border-top: 1px solid var(--line);
+    }
+
+    .link-row {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      width: 100%;
+      padding: 15px 2px;
+      text-decoration: none;
+      border-bottom: 1px solid var(--line);
+      transition: opacity 0.15s ease;
+    }
+
+    .link-row:active { opacity: 0.55; }
+
+    .link-row svg {
+      width: 16px;
+      height: 16px;
+      color: var(--muted-2);
+      flex-shrink: 0;
+    }
+
+    .link-row span {
+      flex: 1;
+      font-size: 0.87rem;
+      font-weight: 500;
+      color: var(--ink);
       line-height: 1.4;
     }
 
-    .link-btn.secondary .btn-arrow {
-      width: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .link-row .row-arrow {
       font-size: 1rem;
-      color: rgba(0,0,0,0.15);
+      color: var(--muted-2);
     }
 
     /* ─── Footer ─── */
     .page-footer {
       margin-top: auto;
-      padding: 40px 0 32px;
+      padding: 40px 0 28px;
       text-align: center;
     }
 
     .page-footer p {
       font-size: 0.68rem;
-      color: rgba(0,0,0,0.22);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      color: var(--muted-2);
+      letter-spacing: 0.03em;
     }
 
     .page-footer a {
-      color: rgba(0,0,0,0.35);
+      color: var(--muted);
       text-decoration: none;
-      transition: color 0.2s;
+      font-weight: 600;
     }
 
-    .page-footer a:hover { color: rgba(0,0,0,0.6); }
+    .page-footer a:hover { color: var(--ink); }
 
-    /* ─── Animations ─── */
+    /* ─── Entrance ─── */
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(14px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    .sheet { animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }
 
-    .hero-section  { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0s; }
-    .profile-info  { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.08s; }
-    .links-section { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.15s; }
-    .page-footer   { animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both 0.22s; }
+    .top-strip {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      padding: 14px 18px 0;
+      background: rgba(248,243,236,0.78);
+      backdrop-filter: blur(8px);
+    }
+
+    .top-strip a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid var(--line);
+    }
+
+    .booking-inline {
+      margin-top: 18px;
+      display: none;
+      padding: 18px 14px 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.52);
+      border: 1px solid var(--line);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+
+    .booking-inline.visible {
+      display: block;
+      animation: fadeUp 0.25s ease both;
+    }
+
+    .wizard-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .wizard-step {
+      display: none;
+    }
+
+    .wizard-step.active {
+      display: block;
+    }
+
+    .wizard-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .wizard-title {
+      font-size: 1.03rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .wizard-muted {
+      color: var(--muted-2);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .wizard-option-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+      border-radius: 14px;
+      padding: 14px 14px;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    }
+
+    .wizard-option-btn:hover {
+      border-color: rgba(150,96,46,0.5);
+      background: rgba(234,223,201,0.3);
+      transform: translateY(-1px);
+    }
+
+    .wizard-option-btn.selected {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(150,96,46,0.12), rgba(150,96,46,0.04));
+      box-shadow: 0 8px 18px rgba(150,96,46,0.08);
+    }
+
+    .wizard-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .listing-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      min-height: 86px;
+    }
+
+    .listing-media {
+      width: 62px;
+      height: 62px;
+      min-width: 62px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(150,96,46,0.12), rgba(150,96,46,0.04));
+      border: 1px solid rgba(150,96,46,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .listing-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .listing-title {
+      display: block;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .listing-meta {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .listing-price {
+      color: #126c4d;
+      font-weight: 800;
+    }
+
+    .wizard-nav {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 12px;
+    }
+
+    .wizard-date-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .wizard-date-card {
+      min-height: 58px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 2px;
+      padding: 6px 4px;
+    }
+
+    .wizard-date-label {
+      color: var(--muted-2);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .wizard-date-day {
+      font-size: 1.25rem;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .wizard-date-month {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .wizard-time-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+      gap: 10px;
+    }
+
+    .wizard-time-item {
+      text-align: center;
+      padding: 12px 8px;
+    }
+
+    .wizard-summary {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .summary-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .summary-row strong {
+      color: var(--ink);
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .fw-btn {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .fw-btn.primary {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--paper);
+    }
+
+    .fw-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .booking-status {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      display: none;
+    }
+
+    .booking-status.error {
+      display: block;
+      background: rgba(198,40,40,0.08);
+      border: 1px solid rgba(198,40,40,0.18);
+      color: #a12727;
+    }
+
+    .booking-status.success {
+      display: block;
+      background: rgba(32,110,79,0.08);
+      border: 1px solid rgba(32,110,79,0.12);
+      color: #1e6a4d;
+    }
   </style>
 </head>
 <body>
 
 <div class="profile-page">
 
-  <!-- Hero -->
-  <div class="hero-section">
-    <div class="hero-cover">
-      {% if admin.cover_photo %}
-        <img class="cover-img" src="{{ image_url(admin.cover_photo) }}" alt="Capa">
-      {% else %}
-        <div class="cover-placeholder"></div>
-      {% endif %}
-    </div>
+  {% if customer_name %}
+  <div class="top-strip">
+    <a href="{{ url_for('main.meus_agendamentos_cliente', salao_slug=admin.username) }}">Meus agendamentos</a>
+  </div>
+  {% endif %}
 
-    <div class="avatar-wrapper">
-      <div class="avatar-ring">
+  <div class="hero-cover">
+    {% if admin.cover_photo %}
+      <img class="cover-img" src="{{ image_url(admin.cover_photo) }}" alt="Capa de {{ admin.company_name }}">
+    {% else %}
+      <div class="cover-placeholder"></div>
+    {% endif %}
+  </div>
+
+  <div class="sheet">
+
+    <div class="identity-row">
+      <div class="avatar-frame">
         <div class="avatar-inner">
           {% if admin.profile_photo %}
             <img src="{{ image_url(admin.profile_photo) }}" alt="Foto de {{ admin.company_name }}">
           {% else %}
-            <div class="avatar-placeholder">foto</div>
+            <div class="avatar-placeholder">{{ admin.company_name[0] | upper }}</div>
           {% endif %}
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Info -->
-  <div class="profile-info">
-    <h1>{{ admin.company_name }}</h1>
-    {% if admin.profession %}
-      <p class="bio">{{ admin.profession }}</p>
-    {% endif %}
-  </div>
-
-  <!-- Links -->
-  <div class="links-section">
-
-    <a href="{{ url_for('main.cliente_opcoes', salao_slug=admin.username) if customer_name else url_for('main.login_phone_screen', salao_slug=admin.username) }}"
-       class="link-btn primary">
-      <div class="btn-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="3"/>
-          <line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8"  y1="2" x2="8"  y2="6"/>
-          <line x1="3"  y1="10" x2="21" y2="10"/>
-          <circle cx="8"  cy="15" r="0.8" fill="currentColor"/>
-          <circle cx="12" cy="15" r="0.8" fill="currentColor"/>
-          <circle cx="16" cy="15" r="0.8" fill="currentColor"/>
-          <circle cx="8"  cy="19" r="0.8" fill="currentColor"/>
-          <circle cx="12" cy="19" r="0.8" fill="currentColor"/>
-        </svg>
+      <div class="identity-text">
+        <h1>{{ admin.company_name }}</h1>
+        {% if admin.profession %}
+          <span class="profession-chip">{{ admin.profession }}</span>
+        {% endif %}
       </div>
-      <span class="btn-label">Agendar horário</span>
-      <div class="btn-arrow">›</div>
-    </a>
+    </div>
+
+    {% if customer_name %}
+      <p class="greeting">Bem-vindo(a) de volta, <strong>{{ customer_name }}</strong> — pronto(a) pra marcar seu próximo horário?</p>
+    {% endif %}
+
+    <button type="button" id="booking-toggle" class="cta-primary" style="border: none; cursor: pointer;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="3"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+        <circle cx="8" cy="15" r="0.9" fill="currentColor"/>
+        <circle cx="12" cy="15" r="0.9" fill="currentColor"/>
+        <circle cx="16" cy="15" r="0.9" fill="currentColor"/>
+      </svg>
+      <span class="cta-text">
+        <span class="cta-title">Agendar horário</span>
+        <span class="cta-sub">Ver horários disponíveis agora</span>
+      </span>
+      <span class="cta-arrow">›</span>
+    </button>
+
+    <div id="booking-inline" class="booking-inline">
+      <div class="wizard-shell">
+        <div class="wizard-step active" data-step="1">
+          <div class="wizard-header">
+            <span class="wizard-muted">Etapa 1</span>
+            <span class="wizard-title">Escolha o serviço</span>
+          </div>
+          <div id="services-container" class="wizard-grid"></div>
+        </div>
+
+        <div class="wizard-step" data-step="2">
+          <div class="wizard-header">
+            <span class="wizard-muted">Etapa 2</span>
+            <span class="wizard-title">Escolha o profissional</span>
+          </div>
+          <div id="professionals-container" class="wizard-grid"></div>
+        </div>
+
+        <div class="wizard-step" data-step="3">
+          <div class="wizard-header">
+            <span class="wizard-muted">Etapa 3</span>
+            <span class="wizard-title">Escolha o dia e o horário</span>
+          </div>
+          <div id="dates-container" class="wizard-date-grid"></div>
+          <div id="no-dates" class="booking-status error" style="display:none;">Nenhum dia disponível a partir de hoje.</div>
+          <div id="date-slot-panel" style="display:none; margin-top:16px;">
+            <div id="selected-date-label" class="wizard-muted" style="display:block; margin-bottom:10px; color: var(--muted); letter-spacing:0; text-transform:none; font-size:0.8rem;">Dia selecionado</div>
+            <div id="times-container" class="wizard-time-grid"></div>
+            <div id="no-times" class="booking-status error" style="display:none;">Nenhum horário disponível.</div>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="4">
+          <div class="wizard-header">
+            <span class="wizard-muted">Etapa 4</span>
+            <span class="wizard-title">Confirme seu agendamento</span>
+          </div>
+          <div class="wizard-summary">
+            <div class="summary-row"><span>Serviço</span><strong id="confirm-service">-</strong></div>
+            <div class="summary-row"><span>Profissional</span><strong id="confirm-professional">-</strong></div>
+            <div class="summary-row"><span>Data</span><strong id="confirm-date">-</strong></div>
+            <div class="summary-row"><span>Horário</span><strong id="confirm-time">-</strong></div>
+          </div>
+          <div id="auth-note" class="booking-status" style="display:block; background: rgba(150,96,46,0.06); border: 1px solid rgba(150,96,46,0.14); color: #6b4a28;">Para finalizar, entre ou cadastre-se antes de confirmar.</div>
+          <div class="action-row">
+            <button type="button" id="booking-confirm" class="fw-btn primary" style="width:100%;">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button type="button" id="wizard-back" class="fw-btn" style="display:none;">Voltar</button>
+    </div>
 
     {% if admin.links %}
-      {% for link in admin.links %}
-      <a href="{{ link.url }}" target="_blank" rel="noopener" class="link-btn secondary">
-        <div class="btn-icon">
+    <div class="links-group">
+      <div class="group-label">Mais sobre {{ admin.company_name }}</div>
+      <div class="links-list">
+        {% for link in admin.links %}
+        <a href="{{ link.url }}" target="_blank" rel="noopener" class="link-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-        </div>
-        <span class="btn-label">{{ link.label }}</span>
-        <div class="btn-arrow">›</div>
-      </a>
-      {% endfor %}
+          <span>{{ link.label }}</span>
+          <span class="row-arrow">›</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
     {% endif %}
 
-  </div>
+    <div class="page-footer">
+      <p>Feito com ♥ por <a href="https://poraqui.online" target="_blank">poraqui.online</a></p>
+    </div>
 
-  <!-- Footer -->
-  <div class="page-footer">
-    <p>Feito com ♥ <a href="https://poraqui.online" target="_blank">poraqui.online</a></p>
   </div>
 
 </div>
 
+<script>
+(function () {
+  const salaoSlug = "{{ admin.username }}";
+  const bookingToggle = document.getElementById('booking-toggle');
+  const bookingInline = document.getElementById('booking-inline');
+  const steps = Array.from(document.querySelectorAll('.wizard-step'));
+  const servicesContainer = document.getElementById('services-container');
+  const professionalsContainer = document.getElementById('professionals-container');
+  const datesContainer = document.getElementById('dates-container');
+  const timesContainer = document.getElementById('times-container');
+  const noDates = document.getElementById('no-dates');
+  const noTimes = document.getElementById('no-times');
+  const dateSlotPanel = document.getElementById('date-slot-panel');
+  const selectedLabel = document.getElementById('selected-date-label');
+  const wizardBackBtn = document.getElementById('wizard-back');
+  const confirmBtn = document.getElementById('booking-confirm');
+  const authNote = document.getElementById('auth-note');
+
+  const bookingData = {
+    serviceId: null,
+    serviceName: null,
+    professionalId: null,
+    professionalName: null,
+    date: null,
+    dateFormatted: null,
+    time: null,
+    locationId: null
+  };
+
+  let currentStep = 1;
+
+  function setStep(step) {
+    currentStep = step;
+    steps.forEach((node) => {
+      node.classList.toggle('active', Number(node.dataset.step) === step);
+    });
+    if (wizardBackBtn) {
+      wizardBackBtn.style.display = step > 1 ? 'inline-flex' : 'none';
+    }
+    if (step === 4) {
+      updateConfirmation();
+      if (!document.cookie.split(';').some((cookie) => cookie.trim().startsWith('customer_jwt='))) {
+        authNote.style.display = 'block';
+      } else {
+        authNote.style.display = 'none';
+      }
+    }
+  }
+
+  function updateConfirmation() {
+    document.getElementById('confirm-service').textContent = bookingData.serviceName || '-';
+    document.getElementById('confirm-professional').textContent = bookingData.professionalName || '-';
+    document.getElementById('confirm-date').textContent = bookingData.dateFormatted || '-';
+    document.getElementById('confirm-time').textContent = bookingData.time || '-';
+  }
+
+  function toggleBooking() {
+    bookingInline.classList.toggle('visible');
+    bookingToggle.style.display = bookingInline.classList.contains('visible') ? 'none' : 'flex';
+    if (bookingInline.classList.contains('visible')) {
+      loadServices();
+    }
+  }
+
+  bookingToggle.addEventListener('click', toggleBooking);
+
+  function renderEmptyState(container, message, element) {
+    container.innerHTML = '';
+    if (element) element.style.display = 'block';
+    else if (message) {
+      container.innerHTML = `<div style="color:var(--muted); font-size:0.82rem;">${message}</div>`;
+    }
+  }
+
+  async function loadServices() {
+    servicesContainer.innerHTML = '<div style="color:var(--muted); font-size:0.8rem;">Carregando...</div>';
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/services`);
+      const data = await resp.json();
+      if (!data.services || !data.services.length) {
+        renderEmptyState(servicesContainer, 'Nenhum serviço disponível.', null);
+        return;
+      }
+      servicesContainer.innerHTML = data.services.map((service) => `
+        <button type="button" class="wizard-option-btn listing-card" data-service-id="${service.id}" data-service-name="${service.name}">
+          <div class="listing-media">✦</div>
+          <div class="listing-copy">
+            <span class="listing-title">${service.name}</span>
+            <span class="listing-meta">${service.duration} min</span>
+            <span class="listing-meta listing-price">${parseFloat(service.price) > 0 ? 'R$ ' + parseFloat(service.price).toFixed(2) : 'Sob consulta'}</span>
+          </div>
+        </button>
+      `).join('');
+      servicesContainer.querySelectorAll('[data-service-id]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          bookingData.serviceId = button.dataset.serviceId;
+          bookingData.serviceName = button.dataset.serviceName;
+          servicesContainer.querySelectorAll('[data-service-id]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          await loadProfessionals();
+          setStep(2);
+        });
+      });
+    } catch (error) {
+      servicesContainer.innerHTML = '<div style="color:#a12727; font-size:0.8rem;">Erro ao carregar serviços.</div>';
+    }
+  }
+
+  async function loadProfessionals() {
+    professionalsContainer.innerHTML = '<div style="color:var(--muted); font-size:0.8rem;">Carregando...</div>';
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/professionals?service_id=${bookingData.serviceId}`);
+      const data = await resp.json();
+      if (!data.professionals || !data.professionals.length) {
+        renderEmptyState(professionalsContainer, 'Nenhum profissional disponível.', null);
+        return;
+      }
+      professionalsContainer.innerHTML = data.professionals.map((professional) => `
+        <button type="button" class="wizard-option-btn listing-card" data-professional-id="${professional.id}" data-professional-name="${professional.name}">
+          <div class="listing-media">${(professional.name || 'P').charAt(0).toUpperCase()}</div>
+          <div class="listing-copy">
+            <span class="listing-title">${professional.name}</span>
+            <span class="listing-meta">Profissional disponível</span>
+          </div>
+        </button>
+      `).join('');
+      professionalsContainer.querySelectorAll('[data-professional-id]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          bookingData.professionalId = button.dataset.professionalId;
+          bookingData.professionalName = button.dataset.professionalName;
+          professionalsContainer.querySelectorAll('[data-professional-id]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          await loadDates();
+          setStep(3);
+        });
+      });
+    } catch (error) {
+      professionalsContainer.innerHTML = '<div style="color:#a12727; font-size:0.8rem;">Erro ao carregar profissionais.</div>';
+    }
+  }
+
+  async function loadDates() {
+    datesContainer.innerHTML = '<div style="color:var(--muted); font-size:0.8rem; grid-column:1/-1;">Carregando...</div>';
+    noDates.style.display = 'none';
+    dateSlotPanel.style.display = 'none';
+    timesContainer.innerHTML = '';
+    bookingData.date = null;
+    bookingData.dateFormatted = null;
+    bookingData.time = null;
+
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/dates?service_id=${bookingData.serviceId}&professional_id=${bookingData.professionalId}`);
+      const data = await resp.json();
+      if (!data.dates || !data.dates.length) {
+        datesContainer.innerHTML = '';
+        noDates.style.display = 'block';
+        return;
+      }
+      datesContainer.innerHTML = data.dates.map((date) => `
+        <button type="button" class="wizard-option-btn wizard-date-card" data-date="${date.value}" data-date-formatted="${date.formatted}">
+          <span class="wizard-date-label">${date.label}</span>
+          <span class="wizard-date-day">${date.day}</span>
+          <span class="wizard-date-month">${date.month}</span>
+        </button>
+      `).join('');
+      datesContainer.querySelectorAll('[data-date]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          bookingData.date = button.dataset.date;
+          bookingData.dateFormatted = button.dataset.dateFormatted;
+          datesContainer.querySelectorAll('[data-date]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          await loadTimes();
+        });
+      });
+    } catch (error) {
+      datesContainer.innerHTML = '<div style="color:#a12727; font-size:0.8rem; grid-column:1/-1;">Erro ao carregar datas.</div>';
+    }
+  }
+
+  async function loadTimes() {
+    const dateText = bookingData.dateFormatted || 'Data selecionada';
+    selectedLabel.textContent = dateText;
+    dateSlotPanel.style.display = 'block';
+    timesContainer.innerHTML = '<div style="color:var(--muted); font-size:0.8rem; grid-column:1/-1;">Carregando...</div>';
+    noTimes.style.display = 'none';
+
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/times?service_id=${bookingData.serviceId}&professional_id=${bookingData.professionalId}&date=${bookingData.date}`);
+      const data = await resp.json();
+      if (!data.times || !data.times.length) {
+        timesContainer.innerHTML = '';
+        noTimes.style.display = 'block';
+        return;
+      }
+      timesContainer.innerHTML = data.times.map((time) => `
+        <button type="button" class="wizard-option-btn wizard-time-item" data-time="${time}">${time}</button>
+      `).join('');
+      timesContainer.querySelectorAll('[data-time]').forEach((button) => {
+        button.addEventListener('click', () => {
+          bookingData.time = button.dataset.time;
+          timesContainer.querySelectorAll('[data-time]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          setStep(4);
+        });
+      });
+    } catch (error) {
+      timesContainer.innerHTML = '<div style="color:#a12727; font-size:0.8rem; grid-column:1/-1;">Erro ao carregar horários.</div>';
+    }
+  }
+
+  wizardBackBtn.addEventListener('click', () => {
+    if (currentStep > 1) {
+      setStep(currentStep - 1);
+    }
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (!document.cookie.split(';').some((cookie) => cookie.trim().startsWith('customer_jwt='))) {
+      window.location.href = `/${salaoSlug}/entrar?next=${encodeURIComponent(window.location.pathname)}`;
+      return;
+    }
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Confirmando...';
+    try {
+      const resp = await fetch(`/api/${salaoSlug}/confirmar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: bookingData.serviceId,
+          professional_id: bookingData.professionalId,
+          location_id: bookingData.locationId,
+          date: bookingData.date,
+          horario: bookingData.time
+        })
+      });
+      if (resp.ok) {
+        window.location.href = `/${salaoSlug}/agendamento-sucesso`;
+        return;
+      }
+      const error = await resp.json();
+      alert(error.error || 'Erro ao confirmar agendamento.');
+    } catch (error) {
+      alert('Erro ao confirmar agendamento.');
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmar';
+    }
+  });
+
+  setStep(1);
+})();
+</script>
 </body>
 </html>

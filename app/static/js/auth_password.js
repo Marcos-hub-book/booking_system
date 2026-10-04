@@ -19,6 +19,7 @@
   const passReg = $('#password-register');
   const passReg2 = $('#password-register-2');
   const btnRegister = $('#btn-register');
+  const nextUrl = window.NEXT_URL || `/${window.SALAO_SLUG}/opcoes`;
 
   let identifierValue = '';
   let isPhoneIdentifier = false;
@@ -67,11 +68,11 @@
     try{
       const res = await fetch('/api/auth/login', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ identifier: identifierValue, password: pwd, salao_slug: window.SALAO_SLUG })
+        body: JSON.stringify({ identifier: identifierValue, password: pwd, salao_slug: window.SALAO_SLUG, next: nextUrl })
       });
       const data = await res.json();
       if(!data.ok){ setMsg('Credenciais inválidas.'); return; }
-      window.location.href = `/${window.SALAO_SLUG}/opcoes`;
+      window.location.href = data.next || nextUrl;
     }catch(e){ setMsg('Erro de rede.'); }
   }
 
@@ -102,7 +103,8 @@
           firstName: fn,
           lastName: ln,
           email: emailValue,
-          password: pw1
+          password: pw1,
+          next: nextUrl
         })
       });
       const data = await res.json();
@@ -116,7 +118,7 @@
         }
         return;
       }
-      window.location.href = `/${window.SALAO_SLUG}/opcoes`;
+      window.location.href = data.next || nextUrl;
     }catch(e){ setMsg('Erro de rede ao salvar cadastro.'); }
   }
 
