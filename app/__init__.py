@@ -22,10 +22,16 @@ def create_app():
     )
     app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # 4MB
     
-    db_url = os.environ.get('DATABASE_URL')
-    if not db_url:
-        # Use a string pública do Railway para testes locais
-        db_url = 'postgresql://postgres:WChEzjpJsfDanSsdClJDpHYZzVDmRKgg@hopper.proxy.rlwy.net:41618/railway'
+    db_url = (
+        os.environ.get('DATABASE_URL')
+        or os.environ.get('SQLALCHEMY_DATABASE_URI')
+        or os.environ.get('DB_URL')
+        or 'postgresql://postgres:35268234@localhost:5432/booking_system'
+    )
+
+    # Avoid stale public Railway hosts that may no longer resolve from local environments.
+    if 'proxy.rlwy.net' in db_url and not os.environ.get('DATABASE_URL'):
+        db_url = 'postgresql://postgres:35268234@localhost:5432/booking_system'
 
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     db.init_app(app)

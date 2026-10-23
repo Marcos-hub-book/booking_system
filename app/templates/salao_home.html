@@ -214,6 +214,100 @@
       color: rgba(248,243,236,0.4);
     }
 
+    .booking-auth-gate {
+      margin-top: 14px;
+      background: rgba(150, 96, 46, 0.04);
+      border: 1px solid rgba(150, 96, 46, 0.12);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .booking-auth-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .booking-auth-panel p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .booking-auth-panel .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .booking-auth-panel .form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .booking-auth-panel .inline-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .booking-status {
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      display: none;
+    }
+
+    .booking-status.error {
+      background: rgba(190, 24, 93, 0.06);
+      border: 1px solid rgba(190, 24, 93, 0.18);
+      color: #b91c1c;
+    }
+
+    .booking-status.success {
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px solid rgba(34, 197, 94, 0.18);
+      color: #166534;
+    }
+
+    .fw-input {
+      width: 100%;
+      background: #fff;
+      border: 1px solid rgba(33, 28, 23, 0.12);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+      color: var(--ink);
+      box-shadow: 0 1px 0 rgba(20, 16, 12, 0.02);
+    }
+
+    .fw-input:focus {
+      outline: none;
+      border-color: rgba(150, 96, 46, 0.5);
+      box-shadow: 0 0 0 3px rgba(150, 96, 46, 0.08);
+    }
+
+    .fw-btn {
+      border: 1px solid rgba(33, 28, 23, 0.12);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    .fw-btn:active { transform: scale(0.985); }
+    .fw-btn.primary {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
+    }
+
     /* ─── Links group ─── */
     .links-group {
       margin-top: 28px;
@@ -674,6 +768,61 @@
             <div id="times-container" class="wizard-time-grid"></div>
             <div id="no-times" class="booking-status error" style="display:none;">Nenhum horário disponível.</div>
           </div>
+
+          <div id="booking-auth-gate" class="booking-auth-gate" style="display:none;">
+            <div id="booking-auth-check" class="booking-auth-panel">
+              <label class="wizard-muted" style="display:block; margin-bottom:4px;">Email</label>
+              <input id="auth-email-input" class="fw-input" type="email" placeholder="Digite seu email" />
+              <div class="inline-actions">
+                <button id="auth-check-btn" type="button" class="fw-btn primary">Continuar</button>
+              </div>
+            </div>
+
+            <div id="booking-auth-password" class="booking-auth-panel" style="display:none;">
+              <p>Olá, <strong id="auth-customer-name"></strong>. Digite sua senha para continuar.</p>
+              <label class="wizard-muted" style="display:block; margin-bottom:4px;">Senha</label>
+              <input id="auth-password-input" class="fw-input" type="password" placeholder="Sua senha" />
+              <div class="inline-actions">
+                <button id="auth-login-btn" type="button" class="fw-btn primary">Entrar</button>
+                <button id="auth-back-check" type="button" class="fw-btn">Voltar</button>
+              </div>
+            </div>
+
+            <div id="booking-auth-register" class="booking-auth-panel" style="display:none;">
+              <div class="form-grid">
+                <div>
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Nome</label>
+                  <input id="auth-first-name" class="fw-input" type="text" placeholder="Seu nome" />
+                </div>
+                <div>
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Sobrenome</label>
+                  <input id="auth-last-name" class="fw-input" type="text" placeholder="Seu sobrenome" />
+                </div>
+                <div class="full">
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Email</label>
+                  <input id="auth-email-register" class="fw-input" type="email" placeholder="voce@exemplo.com" />
+                </div>
+                <div class="full">
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Telefone</label>
+                  <input id="auth-phone" class="fw-input" type="tel" placeholder="(00) 9 0000-0000" />
+                </div>
+                <div class="full">
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Senha</label>
+                  <input id="auth-register-password" class="fw-input" type="password" placeholder="Crie uma senha" />
+                </div>
+                <div class="full">
+                  <label class="wizard-muted" style="display:block; margin-bottom:4px;">Confirmar senha</label>
+                  <input id="auth-register-password-confirm" class="fw-input" type="password" placeholder="Repita a senha" />
+                </div>
+              </div>
+              <div class="inline-actions">
+                <button id="auth-register-btn" type="button" class="fw-btn primary">Salvar e continuar</button>
+                <button id="auth-back-login" type="button" class="fw-btn">Voltar</button>
+              </div>
+            </div>
+
+            <div id="auth-message" class="booking-status error" style="display:none;"></div>
+          </div>
         </div>
 
         <div class="wizard-step" data-step="4">
@@ -688,6 +837,7 @@
             <div class="summary-row"><span>Horário</span><strong id="confirm-time">-</strong></div>
           </div>
           <div id="auth-note" class="booking-status" style="display:block; background: rgba(150,96,46,0.06); border: 1px solid rgba(150,96,46,0.14); color: #6b4a28;">Para finalizar, entre ou cadastre-se antes de confirmar.</div>
+
           <div class="action-row">
             <button type="button" id="booking-confirm" class="fw-btn primary" style="width:100%;">Confirmar</button>
           </div>
@@ -728,8 +878,10 @@
 <script>
 (function () {
   const salaoSlug = "{{ admin.username }}";
+  let customerLoggedIn = {{ 'true' if customer_name else 'false' }};
   const bookingToggle = document.getElementById('booking-toggle');
   const bookingInline = document.getElementById('booking-inline');
+  const resumeBookingParam = new URLSearchParams(window.location.search).get('resume_booking') === '1';
   const steps = Array.from(document.querySelectorAll('.wizard-step'));
   const servicesContainer = document.getElementById('services-container');
   const professionalsContainer = document.getElementById('professionals-container');
@@ -742,6 +894,20 @@
   const wizardBackBtn = document.getElementById('wizard-back');
   const confirmBtn = document.getElementById('booking-confirm');
   const authNote = document.getElementById('auth-note');
+  const bookingAuthGate = document.getElementById('booking-auth-gate');
+  const bookingAuthCheck = document.getElementById('booking-auth-check');
+  const bookingAuthPassword = document.getElementById('booking-auth-password');
+  const bookingAuthRegister = document.getElementById('booking-auth-register');
+  const authMessage = document.getElementById('auth-message');
+  const authEmailInput = document.getElementById('auth-email-input');
+  const authPasswordInput = document.getElementById('auth-password-input');
+  const authCustomerName = document.getElementById('auth-customer-name');
+  const authFirstName = document.getElementById('auth-first-name');
+  const authLastName = document.getElementById('auth-last-name');
+  const authEmailRegister = document.getElementById('auth-email-register');
+  const authPhone = document.getElementById('auth-phone');
+  const authRegisterPassword = document.getElementById('auth-register-password');
+  const authRegisterPasswordConfirm = document.getElementById('auth-register-password-confirm');
 
   const bookingData = {
     serviceId: null,
@@ -755,6 +921,175 @@
   };
 
   let currentStep = 1;
+  let bookingCompleted = false;
+  const bookingStateKey = `booking_state_${salaoSlug}`;
+
+  function readPersistedBookingState() {
+    const candidates = [
+      () => sessionStorage.getItem(bookingStateKey),
+      () => localStorage.getItem(bookingStateKey)
+    ];
+    for (const read of candidates) {
+      try {
+        const raw = read();
+        if (raw) return raw;
+      } catch (error) {
+        // Ignore storage access errors and continue.
+      }
+    }
+    return null;
+  }
+
+  function writePersistedBookingState(value) {
+    try {
+      const payload = JSON.stringify(value);
+      sessionStorage.setItem(bookingStateKey, payload);
+      localStorage.setItem(bookingStateKey, payload);
+    } catch (error) {
+      // Ignore storage quota or privacy errors.
+    }
+  }
+
+  function clearPersistedBookingState() {
+    try {
+      sessionStorage.removeItem(bookingStateKey);
+      localStorage.removeItem(bookingStateKey);
+    } catch (error) {
+      // Ignore storage access errors.
+    }
+  }
+
+  function saveBookingState() {
+    const state = {
+      step: currentStep,
+      serviceId: bookingData.serviceId,
+      serviceName: bookingData.serviceName,
+      professionalId: bookingData.professionalId,
+      professionalName: bookingData.professionalName,
+      date: bookingData.date,
+      dateFormatted: bookingData.dateFormatted,
+      time: bookingData.time,
+      locationId: bookingData.locationId
+    };
+    writePersistedBookingState(state);
+  }
+
+  function restoreBookingState() {
+    try {
+      const raw = readPersistedBookingState();
+      if (!raw) return false;
+      const state = JSON.parse(raw);
+      if (!state) return false;
+      bookingData.serviceId = state.serviceId || null;
+      bookingData.serviceName = state.serviceName || null;
+      bookingData.professionalId = state.professionalId || null;
+      bookingData.professionalName = state.professionalName || null;
+      bookingData.date = state.date || null;
+      bookingData.dateFormatted = state.dateFormatted || null;
+      bookingData.time = state.time || null;
+      bookingData.locationId = state.locationId || null;
+      if (state.step && Number(state.step) >= 4) {
+        bookingInline.classList.add('visible');
+        bookingToggle.style.display = 'none';
+        setStep(4);
+        updateConfirmation();
+        return true;
+      }
+      if (state.step && Number(state.step) >= 3) {
+        bookingInline.classList.add('visible');
+        bookingToggle.style.display = 'none';
+        setStep(3);
+        return true;
+      }
+      return true;
+    } catch (error) {
+      clearPersistedBookingState();
+      return false;
+    }
+  }
+
+  function setAuthMessage(text, kind = 'error') {
+    if (!authMessage) return;
+    authMessage.textContent = text || '';
+    authMessage.className = 'booking-status ' + (kind === 'success' ? 'success' : 'error');
+    authMessage.style.display = text ? 'block' : 'none';
+  }
+
+  function showGateCheck() {
+    bookingAuthCheck.style.display = 'flex';
+    bookingAuthPassword.style.display = 'none';
+    bookingAuthRegister.style.display = 'none';
+  }
+
+  function showGatePassword(name) {
+    authCustomerName.textContent = name || 'Cliente';
+    bookingAuthCheck.style.display = 'none';
+    bookingAuthPassword.style.display = 'flex';
+    bookingAuthRegister.style.display = 'none';
+  }
+
+  function showGateRegister() {
+    bookingAuthCheck.style.display = 'none';
+    bookingAuthPassword.style.display = 'none';
+    bookingAuthRegister.style.display = 'flex';
+  }
+
+  function openAuthGate() {
+    bookingAuthGate.style.display = 'block';
+    showGateCheck();
+    setAuthMessage('', 'error');
+  }
+
+  function closeAuthGate() {
+    bookingAuthGate.style.display = 'none';
+    setAuthMessage('', 'error');
+  }
+
+  function showLandingPage() {
+    bookingCompleted = false;
+    bookingInline.classList.remove('visible');
+    bookingToggle.style.display = 'flex';
+    bookingAuthGate.style.display = 'none';
+    setAuthMessage('', 'error');
+    authEmailInput.value = '';
+    authPasswordInput.value = '';
+    authFirstName.value = '';
+    authLastName.value = '';
+    authEmailRegister.value = '';
+    authPhone.value = '';
+    authRegisterPassword.value = '';
+    authRegisterPasswordConfirm.value = '';
+    confirmBtn.style.display = 'inline-flex';
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirmar';
+    authNote.style.display = 'block';
+    const successMessage = confirmBtn.parentElement.querySelector('.booking-status.success');
+    if (successMessage) successMessage.remove();
+    clearPersistedBookingState();
+    steps.forEach((node) => node.classList.remove('active'));
+    wizardBackBtn.textContent = 'Voltar';
+    wizardBackBtn.style.display = 'none';
+  }
+
+  function openWizard() {
+    bookingCompleted = false;
+    bookingInline.classList.add('visible');
+    bookingToggle.style.display = 'none';
+    setStep(1);
+    loadServices();
+  }
+
+  function resetBookingFlow() {
+    bookingData.serviceId = null;
+    bookingData.serviceName = null;
+    bookingData.professionalId = null;
+    bookingData.professionalName = null;
+    bookingData.date = null;
+    bookingData.dateFormatted = null;
+    bookingData.time = null;
+    bookingData.locationId = null;
+    showLandingPage();
+  }
 
   function setStep(step) {
     currentStep = step;
@@ -762,16 +1097,23 @@
       node.classList.toggle('active', Number(node.dataset.step) === step);
     });
     if (wizardBackBtn) {
-      wizardBackBtn.style.display = step > 1 ? 'inline-flex' : 'none';
+      if (bookingCompleted) {
+        wizardBackBtn.textContent = 'Voltar ao início';
+        wizardBackBtn.style.display = 'inline-flex';
+      } else {
+        wizardBackBtn.textContent = 'Voltar';
+        wizardBackBtn.style.display = step > 1 ? 'inline-flex' : 'none';
+      }
     }
     if (step === 4) {
       updateConfirmation();
-      if (!document.cookie.split(';').some((cookie) => cookie.trim().startsWith('customer_jwt='))) {
+      if (!customerLoggedIn) {
         authNote.style.display = 'block';
       } else {
         authNote.style.display = 'none';
       }
     }
+    saveBookingState();
   }
 
   function updateConfirmation() {
@@ -782,14 +1124,25 @@
   }
 
   function toggleBooking() {
-    bookingInline.classList.toggle('visible');
-    bookingToggle.style.display = bookingInline.classList.contains('visible') ? 'none' : 'flex';
     if (bookingInline.classList.contains('visible')) {
-      loadServices();
+      bookingInline.classList.remove('visible');
+      bookingToggle.style.display = 'flex';
+      return;
     }
+    openWizard();
   }
 
   bookingToggle.addEventListener('click', toggleBooking);
+
+  window.addEventListener('pageshow', () => {
+    const pending = readPersistedBookingState();
+    if (customerLoggedIn || resumeBookingParam || pending) {
+      const restored = restoreBookingState();
+      if (restored || pending) {
+        bookingInline.classList.add('visible');
+      }
+    }
+  });
 
   function renderEmptyState(container, message, element) {
     container.innerHTML = '';
@@ -825,6 +1178,7 @@
           servicesContainer.querySelectorAll('[data-service-id]').forEach((btn) => btn.classList.toggle('selected', btn === button));
           await loadProfessionals();
           setStep(2);
+          saveBookingState();
         });
       });
     } catch (error) {
@@ -857,6 +1211,7 @@
           professionalsContainer.querySelectorAll('[data-professional-id]').forEach((btn) => btn.classList.toggle('selected', btn === button));
           await loadDates();
           setStep(3);
+          saveBookingState();
         });
       });
     } catch (error) {
@@ -893,6 +1248,7 @@
           bookingData.date = button.dataset.date;
           bookingData.dateFormatted = button.dataset.dateFormatted;
           datesContainer.querySelectorAll('[data-date]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          saveBookingState();
           await loadTimes();
         });
       });
@@ -923,7 +1279,15 @@
         button.addEventListener('click', () => {
           bookingData.time = button.dataset.time;
           timesContainer.querySelectorAll('[data-time]').forEach((btn) => btn.classList.toggle('selected', btn === button));
+          saveBookingState();
+          if (!customerLoggedIn) {
+            setStep(3);
+            openAuthGate();
+            setAuthMessage('Para continuar, confirme seu cadastro antes de finalizar o agendamento.', 'error');
+            return;
+          }
           setStep(4);
+          saveBookingState();
         });
       });
     } catch (error) {
@@ -931,18 +1295,8 @@
     }
   }
 
-  wizardBackBtn.addEventListener('click', () => {
-    if (currentStep > 1) {
-      setStep(currentStep - 1);
-    }
-  });
-
-  confirmBtn.addEventListener('click', async () => {
-    if (!document.cookie.split(';').some((cookie) => cookie.trim().startsWith('customer_jwt='))) {
-      window.location.href = `/${salaoSlug}/entrar?next=${encodeURIComponent(window.location.pathname)}`;
-      return;
-    }
-
+  async function confirmBooking() {
+    saveBookingState();
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Confirmando...';
     try {
@@ -958,20 +1312,187 @@
         })
       });
       if (resp.ok) {
-        window.location.href = `/${salaoSlug}/agendamento-sucesso`;
+        clearPersistedBookingState();
+        closeAuthGate();
+        bookingCompleted = true;
+        setStep(4);
+        authNote.style.display = 'none';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar';
+        confirmBtn.style.display = 'none';
+        const successBox = document.createElement('div');
+        successBox.className = 'booking-status success';
+        successBox.style.display = 'block';
+        successBox.style.marginTop = '12px';
+        successBox.textContent = 'Agendamento confirmado com sucesso.';
+        const parent = confirmBtn.parentElement;
+        const existing = parent.querySelector('.booking-status.success');
+        if (existing) existing.remove();
+        parent.appendChild(successBox);
+        wizardBackBtn.textContent = 'Voltar ao início';
+        wizardBackBtn.style.display = 'inline-flex';
         return;
       }
       const error = await resp.json();
-      alert(error.error || 'Erro ao confirmar agendamento.');
+      setAuthMessage(error.error || 'Erro ao confirmar agendamento.');
     } catch (error) {
-      alert('Erro ao confirmar agendamento.');
+      setAuthMessage('Erro ao confirmar agendamento.');
     } finally {
       confirmBtn.disabled = false;
       confirmBtn.textContent = 'Confirmar';
     }
+  }
+
+  async function checkAccountExists() {
+    const identifier = (authEmailInput.value || '').trim();
+    if (!identifier) {
+      setAuthMessage('Informe seu email para continuar.', 'error');
+      return;
+    }
+    try {
+      const resp = await fetch('/api/auth/check_identifier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, salao_slug: salaoSlug })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data || !data.ok) {
+        setAuthMessage('Não foi possível verificar seu cadastro.', 'error');
+        return;
+      }
+      if (data.exists) {
+        authCustomerName.textContent = data.name || 'Cliente';
+        showGatePassword(data.name || 'Cliente');
+      } else {
+        authEmailRegister.value = identifier;
+        showGateRegister();
+      }
+    } catch (error) {
+      setAuthMessage('Erro ao verificar cadastro.', 'error');
+    }
+  }
+
+  async function loginInline() {
+    const identifier = (authEmailInput.value || '').trim();
+    const password = (authPasswordInput.value || '').trim();
+    if (!identifier || !password) {
+      setAuthMessage('Informe seu email e senha.', 'error');
+      return;
+    }
+    try {
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier,
+          password,
+          salao_slug: salaoSlug,
+          next: `/${salaoSlug}`
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        setAuthMessage('Credenciais inválidas.', 'error');
+        return;
+      }
+      customerLoggedIn = true;
+      closeAuthGate();
+      setStep(4);
+      setAuthMessage('Login realizado com sucesso.', 'success');
+      updateConfirmation();
+    } catch (error) {
+      setAuthMessage('Erro ao entrar. Tente novamente.', 'error');
+    }
+  }
+
+  async function registerInline() {
+    const firstName = (authFirstName.value || '').trim();
+    const lastName = (authLastName.value || '').trim();
+    const email = (authEmailRegister.value || '').trim();
+    const phone = (authPhone.value || '').trim();
+    const password = (authRegisterPassword.value || '').trim();
+    const passwordConfirm = (authRegisterPasswordConfirm.value || '').trim();
+
+    if (!firstName || !email || !phone || !password || !passwordConfirm) {
+      setAuthMessage('Preencha todos os campos para continuar.', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      setAuthMessage('A senha deve ter ao menos 6 caracteres.', 'error');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setAuthMessage('As senhas não conferem.', 'error');
+      return;
+    }
+    try {
+      const resp = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          salao_slug: salaoSlug,
+          identifier: email,
+          phone,
+          firstName,
+          lastName,
+          email,
+          password,
+          next: `/${salaoSlug}`
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        const message = data && data.error === 'email_taken' ? 'Este email já está cadastrado.' : 'Erro ao cadastrar. Tente novamente.';
+        setAuthMessage(message, 'error');
+        return;
+      }
+      customerLoggedIn = true;
+      closeAuthGate();
+      setStep(4);
+      setAuthMessage('Cadastro realizado com sucesso.', 'success');
+      updateConfirmation();
+    } catch (error) {
+      setAuthMessage('Erro ao cadastrar. Tente novamente.', 'error');
+    }
+  }
+
+  wizardBackBtn.addEventListener('click', () => {
+    if (bookingCompleted) {
+      resetBookingFlow();
+      return;
+    }
+    if (currentStep > 1) {
+      setStep(currentStep - 1);
+    }
   });
 
-  setStep(1);
+  document.getElementById('auth-check-btn').addEventListener('click', checkAccountExists);
+  document.getElementById('auth-back-check').addEventListener('click', () => {
+    showGateCheck();
+    setAuthMessage('', 'error');
+  });
+  document.getElementById('auth-login-btn').addEventListener('click', loginInline);
+  document.getElementById('auth-back-login').addEventListener('click', () => {
+    showGateCheck();
+    setAuthMessage('', 'error');
+  });
+  document.getElementById('auth-register-btn').addEventListener('click', registerInline);
+
+  confirmBtn.addEventListener('click', async () => {
+    saveBookingState();
+    if (!customerLoggedIn) {
+      openAuthGate();
+      setAuthMessage('Para continuar, confirme seu cadastro antes de finalizar o agendamento.', 'error');
+      return;
+    }
+    await confirmBooking();
+  });
+
+  showLandingPage();
+  const pendingExists = readPersistedBookingState();
+  if (resumeBookingParam || pendingExists) {
+    restoreBookingState();
+  }
 })();
 </script>
 </body>

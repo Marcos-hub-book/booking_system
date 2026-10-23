@@ -1,8 +1,16 @@
 from pathlib import Path
 
+import os
+
+
 class Config:
-    SECRET_KEY = 'your_secret_key_here'
-    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:35268234@localhost:5432/booking_system'
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'your_secret_key_here')
+    SQLALCHEMY_DATABASE_URI = (
+        os.environ.get('DATABASE_URL')
+        or os.environ.get('SQLALCHEMY_DATABASE_URI')
+        or os.environ.get('DB_URL')
+        or 'postgresql://postgres:35268234@localhost:5432/booking_system'
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Firebase configuration
