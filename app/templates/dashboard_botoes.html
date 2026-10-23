@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .dbb-wrap { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 12px 32px; display: flex; flex-direction: column; gap: 18px; }
+  .dbb-header { display: flex; align-items: center; gap: 12px; }
+  .dbb-back { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid #e3e7eb; border-radius: 10px; background: #fff; text-decoration: none; }
+  .dbb-title { margin: 0; font-size: 1.15rem; font-weight: 600; color: #232323; }
+  .dbb-card { background: #fff; border: 1px solid #e3e7eb; border-radius: 14px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02); padding: 16px; }
+  .dbb-form { display: flex; flex-direction: column; gap: 14px; }
+  .field-label { display: block; margin-bottom: 6px; font-size: 0.8rem; color: #6b7280; }
+  .text-input, .select-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #e3e7eb; border-radius: 10px; font-size: 0.95rem; background: #fff; color: #232323; }
+  .text-input:focus, .select-input:focus { outline: none; border-color: #9ca3af; }
+  .dbb-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .switch { position: relative; width: 46px; height: 28px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch-slider { position: absolute; inset: 0; background: #d1d5db; border-radius: 999px; transition: 0.2s; }
+  .switch-slider:before { content: ""; position: absolute; width: 20px; height: 20px; left: 4px; top: 4px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: 0.2s; }
+  .switch input:checked + .switch-slider { background: #232323; }
+  .switch input:checked + .switch-slider:before { transform: translateX(18px); }
+  .btn-save { background: #232323; color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-size: 0.9rem; cursor: pointer; }
+  .btn-cancel { background: #fff; color: #232323; border: 1px solid #e3e7eb; border-radius: 10px; padding: 10px 16px; font-size: 0.9rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item { background: #fff; border: 1px solid #e3e7eb; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .item-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .pill { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; background: #f3f4f6; color: #374151; text-transform: uppercase; }
+  .pill.active { background: #e7f7ed; color: #166534; }
+  .meta { font-size: 0.8rem; color: #6b7280; }
+  .item-actions { display: flex; align-items: center; gap: 8px; }
+  .mini-btn { border: 1px solid #e3e7eb; border-radius: 8px; background: #fff; padding: 8px 10px; text-decoration: none; color: #232323; font-size: 0.8rem; cursor: pointer; }
+  .mini-btn.danger { color: #991b1b; }
+  .empty-state { color: #6b7280; font-size: 0.9rem; }
+  .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+
+<div class="dbb-wrap">
+  <div class="dbb-header">
+    <a href="{{ url_for('main.dashboard') }}" class="dbb-back" aria-label="Voltar ao dashboard">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="#232323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <h2 class="dbb-title">Botões do salão</h2>
+  </div>
+
+  <div class="dbb-card">
+    <form method="POST" class="dbb-form">
+      <div>
+        <label class="field-label">Tipo do botão</label>
+        <select name="button_type" class="select-input" required>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="location">Localização</option>
+          <option value="ebook">Ebook</option>
+          <option value="social">Redes sociais</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="field-label">Nome do botão</label>
+        <input type="text" name="title" class="text-input" placeholder="Deixe em branco para usar o padrão">
+      </div>
+
+      <div>
+        <label class="field-label">Descrição</label>
+        <input type="text" name="description" class="text-input" placeholder="Ex: Fale conosco ou venha nos visitar">
+      </div>
+
+      <div class="inline-grid">
+        <div>
+          <label class="field-label">Telefone</label>
+          <input type="text" name="phone" class="text-input" placeholder="5511999999999">
+        </div>
+        <div>
+          <label class="field-label">Ordem</label>
+          <input type="number" name="sort_order" class="text-input" min="1" placeholder="1">
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">Endereço</label>
+        <input type="text" name="address" class="text-input" placeholder="Rua X, 123 - Cidade/SP">
+      </div>
+
+      <div>
+        <label class="field-label">Link</label>
+        <input type="url" name="url" class="text-input" placeholder="https://...">
+      </div>
+
+      <div class="dbb-toggle-row">
+        <div>
+          <div style="font-weight: 600; color: #232323;">Botão ativo</div>
+          <div class="meta">Se desmarcado, não aparece na página pública.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="is_active" checked>
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <a href="{{ url_for('main.dashboard') }}" class="btn-cancel">Cancelar</a>
+        <button type="submit" class="btn-save">Salvar botão</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="dbb-card">
+    <div style="font-weight: 600; color: #232323; margin-bottom: 10px;">Botões cadastrados</div>
+    {% if buttons %}
+      <div class="list">
+        {% for button in buttons %}
+          <div class="item">
+            <div class="item-top">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="pill {% if button.is_active %}active{% endif %}">{{ 'Ativo' if button.is_active else 'Inativo' }}</span>
+                <strong>{{ button.title or button.preset_title(button.button_type) }}</strong>
+              </div>
+              <span class="pill">{{ button.button_type }}</span>
+            </div>
+
+            {% if button.description %}
+              <div class="meta">{{ button.description }}</div>
+            {% endif %}
+
+            {% if button.button_type == 'whatsapp' %}
+              <div class="meta">WhatsApp: {{ button.phone or 'Nenhum telefone informado' }}</div>
+            {% elif button.button_type == 'location' %}
+              <div class="meta">Endereço: {{ button.address or 'Nenhum endereço informado' }}</div>
+            {% elif button.button_type in ('ebook', 'social') %}
+              <div class="meta">Link: {{ button.url or 'Nenhum link informado' }}</div>
+            {% endif %}
+
+            <div class="item-actions">
+              <form method="POST" action="{{ url_for('main.dashboard_botoes_toggle', button_id=button.id) }}" style="display:inline;">
+                <button type="submit" class="mini-btn">{{ 'Desativar' if button.is_active else 'Ativar' }}</button>
+              </form>
+              <form method="POST" action="{{ url_for('main.dashboard_botoes_delete', button_id=button.id) }}" style="display:inline;" onsubmit="return confirm('Remover este botão?');">
+                <button type="submit" class="mini-btn danger">Excluir</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">Nenhum botão cadastrado ainda.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

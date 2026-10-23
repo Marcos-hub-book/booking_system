@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, abort, session, jsonify, g, current_app, make_response, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db, login_manager
-from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, service_professional, service_location, Notification
+from .models import User, Professional, Service, Appointment, Customer, ProfessionalSchedule, Location, LocationSchedule, SalonButton, service_professional, service_location, Notification
 from .models import Location
 from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func, or_, and_
@@ -1800,6 +1800,77 @@ def services_list():
     services = Service.query.options(joinedload(Service.professionals), joinedload(Service.locations)).filter_by(admin_id=current_user.id).all()
     return render_template('services_list.html', services=services)
 
+@main.route('/dashboard/botoes', methods=['GET', 'POST'])
+@login_required
+def dashboard_botoes():
+    if current_user.role != 'admin':
+        abort(403)
+    buttons = SalonButton.query.filter_by(admin_id=current_user.id).order_by(SalonButton.sort_order.asc(), SalonButton.id.asc()).all()
+    if request.method == 'POST':
+        button_type = (request.form.get('button_type') or '').strip()
+        valid_types = {'whatsapp', 'location', 'ebook', 'social'}
+        if button_type not in valid_types:
+            flash('Tipo de botão inválido.', 'danger')
+            return redirect(url_for('main.dashboard_botoes'))
+
+        title = (request.form.get('title') or SalonButton.preset_title(button_type)).strip() or SalonButton.preset_title(button_type)
+        description = (request.form.get('description') or '').strip()
+        is_active = request.form.get('is_active') == 'on'
+        phone = (request.form.get('phone') or '').strip()
+        address = (request.form.get('address') or '').strip()
+        url = (request.form.get('url') or '').strip()
+        sort_order = request.form.get('sort_order', type=int) or (len(buttons) + 1)
+
+        if button_type == 'whatsapp' and not phone:
+            flash('Informe o número de telefone para o botão de WhatsApp.', 'danger')
+            return redirect(url_for('main.dashboard_botoes'))
+        if button_type == 'location' and not address:
+            flash('Informe o endereço para o botão de localização.', 'danger')
+            return redirect(url_for('main.dashboard_botoes'))
+        if button_type in ('ebook', 'social') and not url:
+            flash('Informe o link do botão.', 'danger')
+            return redirect(url_for('main.dashboard_botoes'))
+
+        button = SalonButton(
+            admin_id=current_user.id,
+            button_type=button_type,
+            title=title,
+            description=description,
+            is_active=is_active,
+            sort_order=sort_order,
+            phone=phone,
+            address=address,
+            url=url,
+        )
+        db.session.add(button)
+        db.session.commit()
+        flash('Botão adicionado com sucesso.', 'success')
+        return redirect(url_for('main.dashboard_botoes'))
+
+    return render_template('dashboard_botoes.html', buttons=buttons)
+
+@main.route('/dashboard/botoes/<int:button_id>/toggle', methods=['POST'])
+@login_required
+def dashboard_botoes_toggle(button_id):
+    if current_user.role != 'admin':
+        abort(403)
+    button = SalonButton.query.filter_by(id=button_id, admin_id=current_user.id).first_or_404()
+    button.is_active = not button.is_active
+    db.session.commit()
+    flash('Status do botão atualizado.', 'success')
+    return redirect(url_for('main.dashboard_botoes'))
+
+@main.route('/dashboard/botoes/<int:button_id>/delete', methods=['POST'])
+@login_required
+def dashboard_botoes_delete(button_id):
+    if current_user.role != 'admin':
+        abort(403)
+    button = SalonButton.query.filter_by(id=button_id, admin_id=current_user.id).first_or_404()
+    db.session.delete(button)
+    db.session.commit()
+    flash('Botão removido.', 'success')
+    return redirect(url_for('main.dashboard_botoes'))
+
 # Rota para editar serviço
 @main.route('/services/<int:service_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -2336,7 +2407,8 @@ def salao_home(salao_slug):
     admin = User.query.filter_by(username=salao_slug, role='admin').first_or_404()
     if not _public_link_allowed(admin):
         abort(404)
-    return render_template('salao_home.html', admin=admin)
+    salon_buttons = SalonButton.query.filter_by(admin_id=admin.id, is_active=True).order_by(SalonButton.sort_order.asc(), SalonButton.id.asc()).all()
+    return render_template('salao_home.html', admin=admin, salon_buttons=salon_buttons)
 
 
 @main.route('/<salao_slug>/opcoes')

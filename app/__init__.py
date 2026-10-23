@@ -36,6 +36,8 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     db.init_app(app)
     login_manager.init_app(app)
+    with app.app_context():
+        db.create_all()
     migrate = Migrate(app, db)
 
     from .routes import main as main_blueprint

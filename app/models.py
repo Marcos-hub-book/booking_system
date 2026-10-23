@@ -1,5 +1,7 @@
 from . import db
 from datetime import datetime
+from urllib.parse import quote_plus
+import re
 from werkzeug.security import generate_password_hash, check_password_hash
 
 customer_admin = db.Table('customer_admin',
@@ -90,6 +92,53 @@ class Location(db.Model):
     name = db.Column(db.String(150), nullable=False)
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     admin = db.relationship('User', backref='locations')
+
+class SalonButton(db.Model):
+    __tablename__ = 'salon_button'
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    button_type = db.Column(db.String(32), nullable=False, default='custom')
+    title = db.Column(db.String(80), nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    phone = db.Column(db.String(30), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    url = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    admin = db.relationship('User', backref='salon_buttons')
+
+    @staticmethod
+    def preset_title(button_type):
+        titles = {
+            'whatsapp': 'WhatsApp',
+            'location': 'Localização',
+            'ebook': 'Ebook',
+            'social': 'Redes sociais',
+        }
+        return titles.get((button_type or '').strip(), 'Link')
+
+    def build_url(self):
+        button_type = (self.button_type or '').strip()
+        if button_type == 'whatsapp':
+            digits = re.sub(r'\D', '', self.phone or '')
+            if not digits:
+                return ''
+            return f'https://wa.me/{digits}'
+        if button_type == 'location':
+            address = (self.address or '').strip()
+            if not address:
+                return ''
+            return f'https://www.google.com/maps/search/?api=1&query={quote_plus(address)}'
+        if button_type in ('ebook', 'social'):
+            value = (self.url or '').strip()
+            if not value:
+                return ''
+            return value
+        return ''
 
 class LocationSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
