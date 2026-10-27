@@ -205,6 +205,7 @@ def _send_via_evolution(number, text):
         raise RuntimeError('EVOLUTION_URL e EVOLUTION_API_KEY devem estar configurados.')
 
     headers = {
+        'apikey': api_key,
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
     }
@@ -216,7 +217,7 @@ def _send_via_evolution(number, text):
     ]
 
     candidate_urls = [
-        f'{base_url}/message/sendText',
+        f'{base_url}/message/sendText/{instance}',
         f'{base_url}/api/message/sendText',
         f'{base_url}/instance/{instance}/message/sendText',
     ]
