@@ -165,8 +165,8 @@ def enqueue_whatsapp_reminders_for_appointment(appointment):
     appointment_time = appointment.appointment_time
     queue_items = []
 
-    reminder_24h = appointment_time - timedelta(hours=24)
-    reminder_1h = appointment_time - timedelta(hours=1)
+    reminder_24h = appointment_time + timedelta(hours=3)- timedelta(hours=24)
+    reminder_1h = appointment_time + timedelta(hours=3) - timedelta(hours=1)
 
     item_24h = _queue_message(appointment, 'reminder_24h', reminder_24h)
     if item_24h:
