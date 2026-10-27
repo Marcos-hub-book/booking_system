@@ -9,6 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from .forms import LoginForm, RegistrationForm, AppointmentForm
 from sqlalchemy.orm import joinedload
 from decimal import Decimal
+from .whatsapp_service import (
+    cancel_pending_whatsapp_reminders,
+    enqueue_whatsapp_reminders_for_appointment,
+    process_whatsapp_queue,
+    schedule_cancelation_message,
+)
 import os
 import jwt
 import hashlib
@@ -1539,6 +1545,9 @@ def dashboard_cancelar_agendamento(agendamento_id):
     agendamento.ativo = False
     db.session.commit()
 
+    cancel_pending_whatsapp_reminders(agendamento.id)
+    schedule_cancelation_message(agendamento)
+
     # Criar notificação de cancelamento
     customer_name = agendamento.customer.name if agendamento.customer else "Bloqueio"
     service_name = agendamento.service.name if agendamento.service else "horário"
@@ -1806,6 +1815,12 @@ def dashboard_botoes():
     if current_user.role != 'admin':
         abort(403)
     buttons = SalonButton.query.filter_by(admin_id=current_user.id).order_by(SalonButton.sort_order.asc(), SalonButton.id.asc()).all()
+    ptypes = [
+        {'type': 'whatsapp', 'label': 'WhatsApp'},
+        {'type': 'location', 'label': 'Localização'},
+        {'type': 'ebook', 'label': 'Ebook'},
+        {'type': 'social', 'label': 'Redes sociais'},
+    ]
     if request.method == 'POST':
         button_type = (request.form.get('button_type') or '').strip()
         valid_types = {'whatsapp', 'location', 'ebook', 'social'}
@@ -1813,13 +1828,14 @@ def dashboard_botoes():
             flash('Tipo de botão inválido.', 'danger')
             return redirect(url_for('main.dashboard_botoes'))
 
-        title = (request.form.get('title') or SalonButton.preset_title(button_type)).strip() or SalonButton.preset_title(button_type)
+        existing = SalonButton.query.filter_by(admin_id=current_user.id, button_type=button_type).first()
+        title = (request.form.get('title') or '').strip() or (existing.title if existing else SalonButton.preset_title(button_type))
         description = (request.form.get('description') or '').strip()
         is_active = request.form.get('is_active') == 'on'
         phone = (request.form.get('phone') or '').strip()
         address = (request.form.get('address') or '').strip()
         url = (request.form.get('url') or '').strip()
-        sort_order = request.form.get('sort_order', type=int) or (len(buttons) + 1)
+        sort_order = request.form.get('sort_order', type=int) or (existing.sort_order if existing else (len(buttons) + 1))
 
         if button_type == 'whatsapp' and not phone:
             flash('Informe o número de telefone para o botão de WhatsApp.', 'danger')
@@ -1831,23 +1847,34 @@ def dashboard_botoes():
             flash('Informe o link do botão.', 'danger')
             return redirect(url_for('main.dashboard_botoes'))
 
-        button = SalonButton(
-            admin_id=current_user.id,
-            button_type=button_type,
-            title=title,
-            description=description,
-            is_active=is_active,
-            sort_order=sort_order,
-            phone=phone,
-            address=address,
-            url=url,
-        )
-        db.session.add(button)
-        db.session.commit()
-        flash('Botão adicionado com sucesso.', 'success')
+        if existing:
+            existing.title = title
+            existing.description = description
+            existing.is_active = is_active
+            existing.sort_order = sort_order
+            existing.phone = phone if button_type == 'whatsapp' else None
+            existing.address = address if button_type == 'location' else None
+            existing.url = url if button_type in ('ebook', 'social') else None
+            db.session.commit()
+            flash('Botão atualizado com sucesso.', 'success')
+        else:
+            button = SalonButton(
+                admin_id=current_user.id,
+                button_type=button_type,
+                title=title,
+                description=description,
+                is_active=is_active,
+                sort_order=sort_order,
+                phone=phone if button_type == 'whatsapp' else None,
+                address=address if button_type == 'location' else None,
+                url=url if button_type in ('ebook', 'social') else None,
+            )
+            db.session.add(button)
+            db.session.commit()
+            flash('Botão adicionado com sucesso.', 'success')
         return redirect(url_for('main.dashboard_botoes'))
 
-    return render_template('dashboard_botoes.html', buttons=buttons)
+    return render_template('dashboard_botoes.html', buttons=buttons, preset_types=ptypes)
 
 @main.route('/dashboard/botoes/<int:button_id>/toggle', methods=['POST'])
 @login_required
@@ -2672,6 +2699,7 @@ def confirmar_agendamento(salao_slug):
         appt = Appointment(customer_id=cust.id, professional_id=professional.id, service_id=service.id, location_id=location_id, appointment_time=appt_dt, ativo=True)
         db.session.add(appt)
         db.session.commit()
+        enqueue_whatsapp_reminders_for_appointment(appt)
 
     # Criar notificação para o admin do salão
     message = f"Novo agendamento de {cust.name} para {service.name} em {appt_dt.strftime('%d/%m %H:%M')}."
@@ -2720,6 +2748,7 @@ def cancelar_agendamento_cliente(salao_slug, agendamento_id):
     ).first_or_404()
     ag.ativo = False
     db.session.commit()
+    cancel_pending_whatsapp_reminders(ag.id)
 
     # Criar notificação para o admin do salão
     message = f"Cancelamento por cliente: {ag.customer.name} para {ag.service.name} de {ag.appointment_time.strftime('%d/%m %H:%M')}."
@@ -2898,8 +2927,9 @@ def api_confirm_appointment(salao_slug):
     )
     db.session.add(appt)
     db.session.commit()
+    enqueue_whatsapp_reminders_for_appointment(appt)
 
-     # Criar notificação para o admin do salão
+    # Criar notificação para o admin do salão
     message = f"Novo agendamento de {cust.name} para {service.name} em {appt_dt.strftime('%d/%m %H:%M')}."
     create_notification(admin.id, message, related_id=appt.id, related_type='appointment')
 
@@ -2939,13 +2969,13 @@ def send_push_notification(user_id, message):
         if not user:
             current_app.logger.warning(f"Usuário {user_id} não encontrado")
             return
-        
+
         if not user.fcm_token:
             current_app.logger.info(f"Usuário {user.id} não tem fcm_token registrado")
             return
-        
+
         current_app.logger.info(f"Preparando push para usuário {user.id} com token: {user.fcm_token[:20]}...")
-        
+
         # Criar mensagem FCM
         fcm_message = messaging.Message(
             notification=messaging.Notification(
@@ -2954,13 +2984,22 @@ def send_push_notification(user_id, message):
             ),
             token=user.fcm_token,
         )
-        
+
         # Enviar mensagem
         response = messaging.send(fcm_message)
         current_app.logger.info(f"Push notification enviado com sucesso. ID: {response}")
     except Exception as e:
         current_app.logger.error(f"Erro ao enviar push notification para usuário {user_id}: {str(e)}")
         # Não propaga o erro para não quebrar o fluxo de agendamento
+
+
+@main.route('/internal/whatsapp/process-queue', methods=['POST'])
+def internal_whatsapp_process_queue():
+    limit = request.args.get('limit', default=20, type=int)
+    if limit <= 0:
+        limit = 20
+    processed = process_whatsapp_queue(limit=limit)
+    return jsonify({'ok': True, 'processed': processed})
 
 @main.route('/notifications', methods=['GET'])
 @login_required

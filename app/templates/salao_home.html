@@ -739,7 +739,7 @@
     </button>
 
     {% if salon_buttons %}
-      <div class="salon-actions" style="display:flex; flex-direction:column; gap:12px; margin-top: 12px;">
+      <div id="salon-actions" class="salon-actions" style="display:flex; flex-direction:column; gap:12px; margin-top: 12px;">
         {% for button in salon_buttons %}
           {% set button_url = button.build_url() %}
           {% if button_url %}
@@ -910,9 +910,10 @@
 <script>
 (function () {
   const salaoSlug = "{{ admin.username }}";
-  let customerLoggedIn = {{ (customer_name is defined and customer_name) | string | lower }};
+  let customerLoggedIn = {{ 'true' if (customer_name is defined and customer_name) else 'false' }};
   const bookingToggle = document.getElementById('booking-toggle');
   const bookingInline = document.getElementById('booking-inline');
+  const salonActions = document.getElementById('salon-actions');
   const resumeBookingParam = new URLSearchParams(window.location.search).get('resume_booking') === '1';
   const steps = Array.from(document.querySelectorAll('.wizard-step'));
   const servicesContainer = document.getElementById('services-container');
@@ -1079,34 +1080,45 @@
 
   function showLandingPage() {
     bookingCompleted = false;
-    bookingInline.classList.remove('visible');
-    bookingToggle.style.display = 'flex';
-    bookingAuthGate.style.display = 'none';
+    if (bookingInline) bookingInline.classList.remove('visible');
+    if (bookingToggle) bookingToggle.style.display = 'flex';
+    if (salonActions) salonActions.style.display = 'flex';
+    if (bookingAuthGate) bookingAuthGate.style.display = 'none';
     setAuthMessage('', 'error');
-    authEmailInput.value = '';
-    authPasswordInput.value = '';
-    authFirstName.value = '';
-    authLastName.value = '';
-    authEmailRegister.value = '';
-    authPhone.value = '';
-    authRegisterPassword.value = '';
-    authRegisterPasswordConfirm.value = '';
-    confirmBtn.style.display = 'inline-flex';
-    confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Confirmar';
-    authNote.style.display = 'block';
-    const successMessage = confirmBtn.parentElement.querySelector('.booking-status.success');
-    if (successMessage) successMessage.remove();
+    if (authEmailInput) authEmailInput.value = '';
+    if (authPasswordInput) authPasswordInput.value = '';
+    if (authFirstName) authFirstName.value = '';
+    if (authLastName) authLastName.value = '';
+    if (authEmailRegister) authEmailRegister.value = '';
+    if (authPhone) authPhone.value = '';
+    if (authRegisterPassword) authRegisterPassword.value = '';
+    if (authRegisterPasswordConfirm) authRegisterPasswordConfirm.value = '';
+    if (confirmBtn) {
+      confirmBtn.style.display = 'inline-flex';
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmar';
+    }
+    if (authNote) authNote.style.display = 'block';
+    if (confirmBtn && confirmBtn.parentElement) {
+      const successMessage = confirmBtn.parentElement.querySelector('.booking-status.success');
+      if (successMessage) successMessage.remove();
+    }
     clearPersistedBookingState();
     steps.forEach((node) => node.classList.remove('active'));
-    wizardBackBtn.textContent = 'Voltar';
-    wizardBackBtn.style.display = 'none';
+    if (wizardBackBtn) {
+      wizardBackBtn.textContent = 'Voltar';
+      wizardBackBtn.style.display = 'none';
+    }
   }
 
   function openWizard() {
     bookingCompleted = false;
+    if (!bookingInline || !bookingToggle) return;
     bookingInline.classList.add('visible');
     bookingToggle.style.display = 'none';
+    if (salonActions) salonActions.style.display = 'none';
+    bookingToggle.setAttribute('aria-expanded', 'true');
+    clearPersistedBookingState();
     setStep(1);
     loadServices();
   }
@@ -1156,21 +1168,55 @@
   }
 
   function toggleBooking() {
+    if (!bookingInline || !bookingToggle) return;
     if (bookingInline.classList.contains('visible')) {
       bookingInline.classList.remove('visible');
       bookingToggle.style.display = 'flex';
+      if (salonActions) salonActions.style.display = 'flex';
+      bookingToggle.setAttribute('aria-expanded', 'false');
+      clearPersistedBookingState();
       return;
     }
     openWizard();
   }
 
-  bookingToggle.addEventListener('click', toggleBooking);
+  function openBookingFromCta() {
+    if (!bookingInline || !bookingToggle) return;
+    if (bookingInline.classList.contains('visible')) {
+      return;
+    }
+    openWizard();
+  }
+
+  window.openSaloonBookingWizard = function () {
+    openBookingFromCta();
+  };
+
+  if (bookingToggle) {
+    bookingToggle.setAttribute('aria-expanded', 'false');
+    bookingToggle.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (bookingInline && bookingInline.classList.contains('visible')) {
+        toggleBooking();
+        return;
+      }
+      openBookingFromCta();
+    });
+  }
 
   window.addEventListener('pageshow', () => {
     const pending = readPersistedBookingState();
-    if (customerLoggedIn || resumeBookingParam || pending) {
+    if (resumeBookingParam && pending) {
       const restored = restoreBookingState();
-      if (restored || pending) {
+      if (restored) {
+        bookingInline.classList.add('visible');
+      }
+      return;
+    }
+    if (customerLoggedIn && pending) {
+      const restored = restoreBookingState();
+      if (restored) {
         bookingInline.classList.add('visible');
       }
     }

@@ -214,4 +214,32 @@ class Notification(db.Model):
     user = db.relationship('User', backref='notifications')
 
 
+class WhatsAppReminderQueue(db.Model):
+    __tablename__ = 'whatsapp_reminder_queue'
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    message_type = db.Column(db.String(32), nullable=False)
+    status = db.Column(db.String(32), nullable=False, default='queued', index=True)
+    scheduled_for = db.Column(db.DateTime, nullable=False, index=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    max_attempts = db.Column(db.Integer, nullable=False, default=3)
+    dedupe_key = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    payload = db.Column(db.JSON, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    provider_message_id = db.Column(db.String(255), nullable=True)
+    locked_at = db.Column(db.DateTime, nullable=True)
+    lock_token = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+
+    admin = db.relationship('User', backref='whatsapp_reminders')
+    appointment = db.relationship('Appointment', backref='whatsapp_reminders')
+    customer = db.relationship('Customer', backref='whatsapp_reminders')
+
+
 
